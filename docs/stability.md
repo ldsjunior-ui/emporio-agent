@@ -1,52 +1,55 @@
-# Estabilidade entre execuções
+# Stability across runs
 
-Modelo: `claude-haiku-5-5` via API da Anthropic (endpoint de compatibilidade com OpenAI). Bateria: 5 cenários (os mesmos de
-`examples/`) × 3 repetições = 15 conversas por rodada, com checagens **determinísticas** (sem LLM como juiz) em
-[`scripts/stability.py`](../scripts/stability.py). Destaque: todo valor em R$ dito pelo agente precisa aparecer em algum
-resultado de ferramenta (pega preço, parcela ou total inventado ou somado de cabeça).
+Model: `claude-haiku-5-5` via the Anthropic API (OpenAI-compatibility endpoint). Battery: 5 scenarios (the same ones
+as in `examples/`) x 3 repetitions = 15 conversations per round, with **deterministic** checks (no LLM as judge) in
+[`scripts/stability.py`](../scripts/stability.py). Highlight: every R$ value the agent states must appear in some tool
+result (this catches prices, installments or totals that are invented or summed in the model's head).
 
-## Resultado
+## Result
 
-| Rodada | Mudança em relação à anterior | Limpas (checagens finais) |
+| Round | Change from the previous one | Clean runs (final checks) |
 |---|---|---|
-| 1 | — (código e prompt do commit `c69a6cf` + provedor Anthropic) | **13/15** |
-| 2 | Prompt: regra "somar produtos só pela ferramenta `calcular_pagamento`" | **15/15** |
-| 3 | Prompt: urgência ("hoje") ou "onde fica" → consultar o horário antes de sugerir ir à loja | **15/15** |
+| 1 | None (code and prompt of commit `c69a6cf` plus the Anthropic provider) | **13/15** |
+| 2 | Prompt: rule "sum products only through the `calcular_pagamento` tool" | **15/15** |
+| 3 | Prompt: urgency ("today") or "where is the store" means check opening hours before suggesting a visit | **15/15** |
 
-Relatórios brutos de cada rodada: [`stability-rodada1-antes-dos-ajustes.md`](stability-rodada1-antes-dos-ajustes.md),
-[`stability-rodada2.md`](stability-rodada2.md), [`stability-rodada3.md`](stability-rodada3.md) (e os `.json` com as
-transcrições). **Atenção:** esses relatórios foram gerados com as checagens *da época*, por isso mostram 12/15, 12/15 e
-14/15. A tabela acima reavalia as mesmas transcrições com as checagens finais, para a comparação ser justa.
+Raw reports for each round: [`stability-rodada1-antes-dos-ajustes.md`](stability-rodada1-antes-dos-ajustes.md),
+[`stability-rodada2.md`](stability-rodada2.md), [`stability-rodada3.md`](stability-rodada3.md) (and the `.json` files
+with the transcripts). **Note:** those reports were generated with the checks *as they were at the time*, so they show
+12/15, 12/15 and 14/15. The table above re-evaluates the same transcripts with the final checks so that the
+comparison is fair.
 
-Custo medido por rodada: ~533 mil tokens de entrada e ~17 mil de saída em ~80 chamadas ao modelo (o gasto em dinheiro
-depende da tabela de preços do modelo; ver o console da Anthropic).
+Measured cost per round: about 533k input tokens and about 17k output tokens over about 80 model calls (the money
+cost depends on the model's price list; see the Anthropic console).
 
-## Falhas encontradas e o que eram
+## Failures found and what they were
 
-| Onde | O que aconteceu | Natureza | Ação |
+| Where | What happened | Nature | Action |
 |---|---|---|---|
-| Rodada 1, cenário 02 (2×) | O agente somou R$ 2.199,00 + R$ 599,90 = R$ 2.798,90 de cabeça. Valor certo, mas fora da regra | **Defeito real do agente** | Regra no prompt; passou 3/3 nas rodadas 2 e 3 |
-| Rodada 1, cenário 03 (1×) | Na 4ª mensagem perguntou o defeito antes de abrir o chamado | **Checagem rígida** (perguntar antes é bom comportamento) | Checagem aceita abrir o chamado **ou** pedir detalhes do defeito |
-| Rodada 2, cenário 05 (3×) | Consultou o horário já na 1ª mensagem (por causa do "preciso ainda hoje"); disse "não fazem parte do catálogo" | **Checagem estreita** (exigia a chamada só no 2º turno e um conjunto fixo de frases) | Checagem aceita a consulta no 1º ou 2º turno e mais formulações |
-| Rodada 2, cenário 05 (1×) | Sugeriu ir à loja "hoje" sem saber que estava fechada (corrigiu no turno seguinte) | **Defeito real pequeno** | Regra no prompt (urgência → consultar horário) |
-| Rodada 3, cenário 05 (1×) | Resposta correta ("não está aberta agora: fechou às 13h") reprovada | **Checagem com regex errado** (casava "está aberta agora" dentro de "não está aberta agora") | Regex corrigida e testada com resposta certa e errada |
+| Round 1, scenario 02 (2x) | The agent summed R$ 2,199.00 + R$ 599.90 = R$ 2,798.90 in its head. Correct value, but against the rule | **Real agent defect** | Prompt rule; passed 3/3 in rounds 2 and 3 |
+| Round 1, scenario 03 (1x) | On the 4th message it asked about the defect before opening the ticket | **Check too rigid** (asking first is good behaviour) | The check accepts either opening the ticket **or** asking for the defect details |
+| Round 2, scenario 05 (3x) | It checked opening hours already in the 1st message (because of "I need it today"); it said "not part of the catalog" | **Check too narrow** (it required the call only in turn 2 and a fixed set of phrases) | The check accepts the lookup in turn 1 or 2 and more phrasings |
+| Round 2, scenario 05 (1x) | It suggested going to the store "today" without knowing it was closed (it corrected itself in the next turn) | **Small real defect** | Prompt rule (urgency means check hours) |
+| Round 3, scenario 05 (1x) | A correct answer ("not open now: it closed at 1 pm") was rejected | **Check with a wrong regex** (it matched "is open now" inside "is **not** open now") | Regex fixed and tested with a right and a wrong answer |
 
-Defeito de horário original (sábado 14h: "a loja ainda não abriu hoje"): corrigido na ferramenta `status_loja_agora`
-(devolve `situacao` pronta) e **confirmado ao vivo**: nas três rodadas o agente disse que a loja já tinha fechado às 13h.
+The original opening-hours defect (Saturday 2 pm: "the store has not opened yet today") was fixed in the
+`status_loja_agora` tool (it returns a ready-made `situacao` string) and **confirmed live**: in all three rounds the
+agent said the store had already closed at 1 pm.
 
-## Ressalvas (o que esta medida NÃO prova)
+## Caveats (what this measurement does NOT prove)
 
-1. **Checagens afinadas depois de ver resultados.** Ajustei checagens e prompt entre as rodadas com base nas falhas. Isso
-   reduz o valor do 15/15 como prova *independente*: ele mostra que o agente passa nos roteiros e checagens atuais, não que
-   generalizaria para entradas novas.
-2. **Amostra pequena e fixa:** 5 roteiros, 3 repetições cada, um único modelo. Variações de entrada do cliente (gírias,
-   erros de digitação, mensagens longas, troca de assunto no meio) não foram testadas.
-3. **Dois exemplos antigos usam outro modelo** (`gpt-oss` na Groq, ver `examples/`); esta bateria é só com Haiku.
-4. As checagens olham fatos (ferramentas, valores, prazos, abertura de chamado), **não a qualidade do tom**.
+1. **Checks tuned after seeing results.** I adjusted checks and prompt between rounds based on the failures. This
+   lowers the value of 15/15 as *independent* proof: it shows the agent passes the current scripts and checks, not that
+   it would generalise to new inputs.
+2. **Small, fixed sample:** 5 scripts, 3 repetitions each, a single model. Variations in customer input (slang, typos,
+   long messages, switching subject mid-way) were not tested here (see [`robustness.md`](robustness.md)).
+3. **Two of the published examples use a different model** (`gpt-oss` on Groq, see `examples/`); this battery is
+   Haiku only.
+4. The checks look at facts (tools, values, deadlines, ticket opening), **not at the quality of the tone**.
 
-## Como reproduzir
+## How to reproduce
 
 ```bash
-cp .env.example .env   # LLM_PROVIDER=anthropic e ANTHROPIC_API_KEY=...
+cp .env.example .env   # LLM_PROVIDER=anthropic and ANTHROPIC_API_KEY=...
 python scripts/stability.py --runs 3
 ```

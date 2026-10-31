@@ -1,191 +1,213 @@
-# Téo — agente de atendimento da Empório da Música
+# Téo: customer-service agent for Empório da Música
 
-Protótipo (Python) de um agente de mensagens de texto para a loja fictícia **Empório da Música**
-(Campo Grande/MS), feito para o desafio técnico de AI Engineer da Artefact. O **Téo** responde dúvidas de
-catálogo, preço, estoque, pedidos, trocas/devoluções e regras da loja, consultando os dados da operação
-(CSVs) e o manual de políticas (PDF) **só quando precisa**, e recusando com simpatia o que foge do escopo.
+A Python prototype of a text-message agent for the fictional musical-instrument store **Empório da Música**
+(Campo Grande, MS, Brazil), built for the Artefact AI Engineer technical case. **Téo** answers questions about
+the catalog, prices, stock, orders, returns/exchanges and store policies. It consults the operational data
+(CSVs) and the policy manual (PDF) **only when it needs to**, and politely declines anything out of scope.
 
-## Como rodar
+> **Language note.** The store and its customers are Brazilian, so the agent talks to customers in Brazilian
+> Portuguese by design, and the example conversations in [`examples/`](examples) are in Portuguese (they are the
+> agent's real output). Everything written for the reviewer (this README and the reports in [`docs/`](docs)) is in
+> English. Source code identifiers, comments and the system prompt stay in Portuguese, like the store's own
+> materials.
 
-Requisitos: Python 3.11+ e uma chave de API de um provedor compatível com OpenAI (padrão: [Groq](https://console.groq.com), plano gratuito) **ou** o [Ollama](https://ollama.com) local, sem chave.
+## How to run
+
+Requirements: Python 3.11+ and an API key for an OpenAI-compatible provider (default: [Groq](https://console.groq.com),
+free tier) **or** local [Ollama](https://ollama.com) with no key.
 
 ```bash
-git clone <este-repositório> && cd emporio-agent
+git clone https://github.com/ldsjunior-ui/emporio-agent && cd emporio-agent
 python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt            # instala o pacote (modo editável) e as dependências
-cp .env.example .env                       # preencha GROQ_API_KEY (ou LLM_PROVIDER=ollama)
-python -m emporio_agent.cli --debug        # chat no terminal (--debug mostra as ferramentas chamadas)
-python -m emporio_agent.cli --session ID   # retoma uma conversa salva
+pip install -r requirements.txt            # installs the package (editable) and its dependencies
+cp .env.example .env                       # fill in GROQ_API_KEY (or set LLM_PROVIDER=ollama)
+python -m emporio_agent.cli --debug        # terminal chat (--debug shows the tools being called)
+python -m emporio_agent.cli --session ID   # resume a saved conversation
 ```
 
-Testes (não usam a API; o LLM é substituído por um cliente falso):
+Tests (they do not call any API; the LLM is replaced by a fake client):
 
 ```bash
 pip install -r requirements-dev.txt && python -m pytest -q
 ```
 
-Regerar os exemplos de conversa (usa a API, ~5 conversas): `python scripts/run_scenarios.py`.
+Regenerate the example conversations (calls the API, ~5 conversations): `python scripts/run_scenarios.py`.
 
-Variáveis: `LLM_PROVIDER` (`groq` padrão | `anthropic` | `ollama` | `openai`), `GROQ_API_KEY`, `LLM_MODEL` (padrão
-`openai/gpt-oss-120b` na Groq, `qwen2.5:7b` no Ollama), `LLM_BASE_URL`/`LLM_API_KEY` para qualquer outra API
-compatível com OpenAI, e `EMPORIO_NOW="2026-03-23 10:30"` (fixa o "agora" da loja — usado nos exemplos e testes).
+Variables: `LLM_PROVIDER` (`groq` default | `anthropic` | `ollama` | `openai`), `GROQ_API_KEY`, `LLM_MODEL` (default
+`openai/gpt-oss-120b` on Groq, `qwen2.5:7b` on Ollama), `LLM_BASE_URL`/`LLM_API_KEY` for any other
+OpenAI-compatible API, and `EMPORIO_NOW="2026-03-23 10:30"` (pins the store's "now", used by the examples and tests).
 
-Com Ollama (sem chave): `ollama pull qwen2.5:7b` e `LLM_PROVIDER=ollama python -m emporio_agent.cli --debug`.
+With Ollama (no key): `ollama pull qwen2.5:7b` and `LLM_PROVIDER=ollama python -m emporio_agent.cli --debug`.
 
-## Exemplos de interação
+## Example interactions
 
-Em [`examples/`](examples) há 5 conversas reais com o agente (modelo indicado no cabeçalho de cada arquivo: `gpt-oss-120b` nos exemplos 01 e 04, `gpt-oss-20b` nos exemplos 02, 03 e 05, ambos na Groq), geradas por
-`python scripts/run_scenarios.py`, com o rastro das ferramentas chamadas (linhas `🔧`). O texto das respostas é
-saída do modelo, sem edição manual; como o modelo varia entre execuções, uma nova rodada pode sair um pouco diferente. Por que dois modelos: a cota diária gratuita do `gpt-oss-120b` acabou durante a geração, e cada modelo tem cota própria. Os exemplos foram lidos e, quando mostraram falha, a correção foi feita **no código** (travas e saídas de ferramenta), não editando o texto:
+[`examples/`](examples) contains 5 real conversations with the agent. The model is stated in each file's header:
+`gpt-oss-120b` for examples 01 and 04, `gpt-oss-20b` for 02, 03 and 05, both on Groq. They were generated by
+`python scripts/run_scenarios.py` and show the tools the agent called (`🔧` lines). The reply text is model output with
+no manual editing; since the model varies between runs, a new run can come out slightly different. Why two models: the
+free daily quota of `gpt-oss-120b` ran out during generation, and each model has its own quota. The examples were
+read, and whenever one showed a failure the fix was made **in the code** (guards and tool outputs), never by editing
+the text:
 
-| Arquivo | O que demonstra |
+| File | What it demonstrates |
 |---|---|
-| [`01_catalogo_violoes.md`](examples/01_catalogo_violoes.md) | Consulta de catálogo com filtro de preço e estoque; follow-up com parcelamento |
-| [`02_preco_e_promocao_expirada.md`](examples/02_preco_e_promocao_expirada.md) | Preço, PIX, promoção **vencida** (não pode ser prometida) e regra de combinar pagamentos |
-| [`03_devolucao_pedido.md`](examples/03_devolucao_pedido.md) | **Não trivial:** verificação de identidade, política de arrependimento aplicada a um pedido real, prazo vencido e caminho de garantia/defeito |
-| [`04_pedido_atrasado_e_reclamacao.md`](examples/04_pedido_atrasado_e_reclamacao.md) | **Não trivial:** pedido "enviado" com previsão vencida → abertura de chamado com protocolo |
-| [`05_fora_do_escopo_e_horario.md`](examples/05_fora_do_escopo_e_horario.md) | Acessórios (loja não vende), horário (sábado após 13h), tentativa de burlar regras |
+| [`01_catalogo_violoes.md`](examples/01_catalogo_violoes.md) | Catalog search with price and stock filters; installment follow-up |
+| [`02_preco_e_promocao_expirada.md`](examples/02_preco_e_promocao_expirada.md) | Price, PIX, an **expired** promotion (must not be promised) and the rule on combining payments |
+| [`03_devolucao_pedido.md`](examples/03_devolucao_pedido.md) | **Non-trivial:** identity verification, the right-of-withdrawal policy applied to a real order, expired window, warranty/defect path |
+| [`04_pedido_atrasado_e_reclamacao.md`](examples/04_pedido_atrasado_e_reclamacao.md) | **Non-trivial:** an order "shipped" with an overdue estimate leads to a support ticket with a protocol number |
+| [`05_fora_do_escopo_e_horario.md`](examples/05_fora_do_escopo_e_horario.md) | Accessories (the store does not sell them), opening hours (Saturday after 1 pm), an attempt to bypass the rules |
 
-## Arquitetura
+## Architecture
 
 ```
- mensagem ─► Agent (loop de function calling) ─► LLM (Groq/Ollama/…) ─┐
-                ▲                                                       │ tool_calls
-                │ resultado (JSON)                                      ▼
-                └──────────── tools.py ◄── data_store.py (CSVs)   policies.py (manual em seções)
+ message ─► Agent (function-calling loop) ─► LLM (Groq/Ollama/…) ─┐
+                ▲                                                  │ tool_calls
+                │ result (JSON)                                    ▼
+                └──────────── tools.py ◄── data_store.py (CSVs)   policies.py (manual split into sections)
 ```
 
-- `src/emporio_agent/agent.py` — loop: envia histórico + ferramentas, executa as `tool_calls`, devolve os
-  resultados até o modelo responder (máx. 8 rodadas; a última vai sem ferramentas para forçar texto). Em erro
-  transitório faz retry e, se persistir, responde sem ferramentas com o histórico achatado em texto (o
-  `gpt-oss` na Groq às vezes malforma `tool_calls`: erro 400 `failed_generation`). Em erro, faz rollback do
-  turno (nunca deixa `tool_calls` órfão no histórico) e o CLI mostra uma mensagem amigável.
-- `src/emporio_agent/llm.py` — cliente HTTP mínimo (`httpx`) para APIs compatíveis com OpenAI, com retry em 429/5xx.
-- `src/emporio_agent/prompts.py` — persona **Téo** + regras de decisão (quando consultar dados, quando
-  consultar políticas, quando escalar) + escopo/segurança.
-- `src/emporio_agent/tools.py` — 8 ferramentas: `buscar_produtos`, `obter_produto`, `calcular_pagamento`,
-  `consultar_pedido`, `verificar_devolucao`, `status_loja_agora`, `consultar_politicas`,
-  `encaminhar_para_humano`.
-- `src/emporio_agent/data_store.py` / `policies.py` — carga dos CSVs e do manual (`data/politicas_da_loja.md`,
-  transcrição fiel do PDF).
-- `tests/` — 34 testes de regras de negócio, do loop e das travas (cliente de LLM falso, sem rede).
+- `src/emporio_agent/agent.py`: the loop. It sends history + tools, runs the `tool_calls`, and returns the results
+  until the model answers (max 8 rounds; the last round goes without tools to force a text answer). On a transient
+  error it retries and, if that persists, answers without tools using the history flattened to plain text
+  (`gpt-oss` on Groq sometimes malforms `tool_calls`: HTTP 400 `failed_generation`). On error it rolls back the turn
+  (never leaves orphan `tool_calls` in the history) and the CLI shows a friendly message.
+- `src/emporio_agent/llm.py`: minimal HTTP client (`httpx`) for OpenAI-compatible APIs, with retry on 429/5xx.
+- `src/emporio_agent/prompts.py`: the **Téo** persona plus decision rules (when to query data, when to query
+  policies, when to escalate) plus scope and safety rules.
+- `src/emporio_agent/tools.py`: 8 tools: `buscar_produtos` (search products), `obter_produto` (product details),
+  `calcular_pagamento` (payment calculation), `consultar_pedido` (order lookup), `verificar_devolucao` (return
+  eligibility), `status_loja_agora` (open now?), `consultar_politicas` (policy lookup), `encaminhar_para_humano`
+  (open a ticket for the staff).
+- `src/emporio_agent/data_store.py` / `policies.py`: loading of the CSVs and of the manual
+  (`data/politicas_da_loja.md`, a faithful transcription of the PDF).
+- `tests/`: 37 tests covering business rules, the loop and the guards (fake LLM client, no network).
 
-## Decisões técnicas (e por quê)
+## Technical decisions (and why)
 
-**Abordagem: function calling com ferramentas especializadas (híbrido dados + políticas), sem RAG vetorial
-e sem agente de SQL.**
-- *Por que não SQL?* Os dados são 6 CSVs pequenos, mas as regras que importam (promoção só se `is_active=1`,
-  PIX não acumula com promoção, parcela mínima por faixa, "descontinuado" ≠ "sem estoque") são de negócio,
-  não de consulta. Deixar o LLM escrever SQL espalharia essas regras no prompt e tornaria erros silenciosos
-  (e um cliente de WhatsApp não deve acionar SQL livre). Ferramentas com contratos fechados são auditáveis,
-  testáveis e baratas.
-- *Por que não RAG vetorial?* O manual inteiro tem ~2,5 mil tokens e seções bem delimitadas. Cada seção é
-  servida **inteira** por `consultar_politicas(topico)`: sem embeddings, sem chunking, sem risco de recuperar
-  o trecho errado (ex.: "7 dias" de troca por preferência quando a pergunta é sobre defeito, "30 dias").
-  Com um manual de dezenas de páginas, eu migraria para busca híbrida (BM25 + embeddings) com reranking.
-- *Quando consultar o quê:* a decisão é do modelo, guiada por descrições de ferramentas e por uma regra
-  explícita no system prompt (preço/estoque/pedido → dados; regra geral → políticas; "tá aberto?" → relógio;
-  reclamação → humano). Os exemplos mostram isso no rastro `🔧`.
-- **Cálculo em código, redação no LLM.** Preço final com promoção, desconto PIX, número máximo de parcelas,
-  prazo de devolução e "loja aberta agora" são calculados em Python e devolvidos prontos (inclusive formatados
-  em R$). O modelo não faz conta nem aritmética de datas; isso elimina uma classe inteira de alucinação e
-  deixa os testes cobrirem as regras.
+**Approach: function calling with specialised tools (hybrid data + policies), no vector RAG and no SQL agent.**
+- *Why not SQL?* The data is six small CSVs, but the rules that matter (a promotion only counts if `is_active=1`,
+  the PIX discount does not stack with a promotion, minimum installment per tier, "discontinued" is not "out of
+  stock") are business rules, not queries. Letting the LLM write SQL would spread those rules across the prompt
+  and make errors silent (and a WhatsApp customer should not be able to trigger free-form SQL). Tools with closed
+  contracts are auditable, testable and cheap.
+- *Why not vector RAG?* The whole manual is about 2.5k tokens with well-delimited sections. Each section is served
+  **whole** by `consultar_politicas(topic)`: no embeddings, no chunking, no risk of retrieving the wrong passage
+  (for example the "7 days" of an exchange for preference when the question is about a defect, "30 days"). For a
+  manual dozens of pages long I would move to hybrid search (BM25 + embeddings) with reranking.
+- *When to query what:* the decision belongs to the model, guided by the tool descriptions and an explicit
+  system-prompt rule (price/stock/order goes to data; general rule goes to policies; "are you open?" goes to the
+  clock; complaint goes to a human). The examples show this in the `🔧` trace.
+- **Calculation in code, wording by the LLM.** Final price with promotion, PIX discount, maximum installments,
+  return deadlines and "store open now" are computed in Python and handed back ready (already formatted in R$).
+  The model does no arithmetic and no date math, which removes a whole class of hallucination and lets the tests
+  cover the rules.
 
-**Modelo/provedor: API compatível com OpenAI; padrão Groq + `openai/gpt-oss-120b`.** Escolhi pela
-combinação de plano gratuito (qualquer revisor reproduz sem custo), baixa latência e suporte a *function
-calling*. Um cliente único (`llm.py`) fala com Groq, Ollama (local, `qwen2.5:7b`/`llama3.1:8b`), OpenAI ou
-qualquer endpoint compatível, só com variáveis de ambiente. Trade-off conhecido: o gpt-oss é menos estável que
-modelos fechados em chamadas de ferramenta multi-turno, por isso há retry, fallback sem ferramentas e limite de
-rodadas; e ele ainda erra de vez em quando (ver "Limitações"). Em produção eu mediria alguns modelos num
-conjunto de avaliação antes de fixar um.
+**Model/provider: OpenAI-compatible API; default Groq + `openai/gpt-oss-120b`.** Chosen for the combination of a
+free tier (any reviewer can reproduce it at no cost), low latency and function-calling support. A single client
+(`llm.py`) talks to Groq, Ollama (local, `qwen2.5:7b`/`llama3.1:8b`), Anthropic, OpenAI or any compatible endpoint,
+using only environment variables. Known trade-off: gpt-oss is less stable than closed models in multi-turn tool
+calling, hence the retry, the no-tools fallback and the round limit; and it still makes occasional mistakes (see
+"Limitations"). In production I would measure a few models on an evaluation set before settling on one.
 
-**Interface: CLI** (`rich`) — o foco é o agente. A mesma classe `Agent.reply(texto)` serve para API/WhatsApp.
+**Interface: CLI** (`rich`). The focus is the agent; the same `Agent.reply(text)` class serves an API or WhatsApp.
 
-**Persistência:** o histórico da conversa fica em memória durante a sessão e é gravado em
-`sessions/<id>.json` a cada turno, permitindo `--session ID` para retomar. Faz sentido porque atendimento
-é multi-turno (o cliente informa o pedido numa mensagem e o e-mail em outra). As mensagens são salvas em formato
-mínimo (sem campos extras do provedor, como `reasoning`) para serem reenviáveis. Em produção: Redis/Postgres por telefone do cliente.
+**Persistence:** conversation history stays in memory during the session and is written to `sessions/<id>.json`
+after every turn, so `--session ID` can resume it. This makes sense because customer service is multi-turn (the
+customer gives the order number in one message and the e-mail in another). Messages are stored in a minimal format
+(without provider-specific extras such as `reasoning`) so they can be re-sent. In production: Redis/Postgres keyed
+by customer phone number.
 
-**Tratamento dos dados** (ver `data_store.py`):
-- Busca tolerante a acento, caixa e plural pt-BR (`violões` → `violao`), sobre nome + categoria + descrição
-  + specs. Se nenhum produto casa com todos os termos, relaxa para "qualquer termo" e sinaliza
-  `busca_aproximada` para o agente ser transparente.
-- Filtro de preço usa o **preço final** (com promoção ativa): é o que o cliente paga.
-- Só `is_active = 1` vale como promoção; se houver mais de uma ativa no mesmo produto vale a maior
-  (promoções não são cumulativas, §6.2).
-- Status em inglês nos CSVs (`shipped`, `confirmed`…) viram descrições em português para o modelo.
-- Disponível para venda = `status = active` **e** `stock_quantity > 0`.
+**Data handling** (see `data_store.py`):
+- Search tolerant to accents, case and Brazilian-Portuguese plurals (`violões` becomes `violao`) over name +
+  category + description + specs. If no product matches all terms, it relaxes to "any term" and flags
+  `busca_aproximada` (approximate match) so the agent is transparent about it.
+- The price filter uses the **final price** (with the active promotion): it is what the customer pays.
+- Only `is_active = 1` counts as a promotion; if a product has more than one active, the largest wins
+  (promotions do not stack, manual section 6.2).
+- Order statuses in English in the CSVs (`shipped`, `confirmed`…) become Portuguese descriptions for the model.
+- Available for sale = `status = active` **and** `stock_quantity > 0`.
 
-**Segurança e privacidade (LGPD, §9 do manual):** dados de pedido só saem com **número do pedido + e-mail
-ou telefone cadastrado**; a mensagem de falha é idêntica para "pedido não existe" e "contato não confere"
-(não revela existência). O agente não executa devolução/cancelamento/reembolso: abre chamado
-(`encaminhar_para_humano`, grava em `outbox/chamados.jsonl`, protocolo `EM-AAAAMMDD-NNNN`, retorno em 24h úteis).
-O prompt instrui a ignorar pedidos de revelar instruções ou mudar de papel; o escopo (só instrumentos, sem
-acessórios) vem do §1/§7.1.
+**Security and privacy (LGPD, manual section 9):** order data is only released with the **order number plus the
+registered e-mail or phone**; the failure message is identical for "order does not exist" and "contact does not
+match" (it does not reveal existence). The agent does not execute returns, cancellations or refunds: it opens a
+ticket (`encaminhar_para_humano`, written to `outbox/chamados.jsonl`, protocol `EM-YYYYMMDD-NNNN`, 24 business
+hours to reply). The prompt tells it to ignore requests to reveal its instructions or change role; the scope
+(instruments only, no accessories) comes from manual sections 1 and 7.1.
 
-## Suposições e inconsistências encontradas (documentadas, como pedido)
+## Assumptions and inconsistencies found (documented, as requested)
 
-| # | Situação nos materiais | Decisão |
+| # | Situation in the materials | Decision |
 |---|---|---|
-| 1 | Telefone: capa e §1.2 trazem **(67) 3341-4444**; §7 diz que o WhatsApp é **(67) 3321-4500** | Telefone = 3341-4444; WhatsApp = 3321-4500 (as duas informações vão no prompt). A loja deve confirmar |
-| 2 | E-mail: capa `contato@emporiodamusica.com.br`; §1.2 `contato@empóriodamusica.com.br` (com acento) | Usa a versão sem acento (domínio válido) |
-| 3 | Parcelamento: tabela do §3 diz "até 12x, parcela mín. R$ 100"; §3.1 detalha 3x sem mínimo, 4–6x mín. R$ 80, 7–12x mín. R$ 100 | Vale o §3.1 (mais específico). Compra < R$ 50 não parcela |
-| 4 | Troca por defeito: **30 dias após a compra** (§4.2) vs. garantia legal **90 dias após o recebimento** (§8.1) | Distingue: troca direta até 30 dias; depois, garantia legal (90d)/fabricante, com a loja podendo intermediar |
-| 5 | Os pedidos não têm a **data real de entrega**, só `estimated_delivery` | Usa a previsão de entrega como data de recebimento para os prazos de 7 dias e avisa que a equipe confirma |
-| 6 | O manual fala em arrependimento para **compras online**; os CSVs não dizem o canal | Assume que pedidos com envio/rastreio são online |
-| 7 | Produto `130` (Kala barítono) está `coming_soon` mas tem estoque 2 e consta em pedidos entregues; `136` está `discontinued` com estoque 13; `96` está `active` com estoque 0 | Só `active` com estoque > 0 é vendável; os demais aparecem como "em breve"/"descontinuado"/"sem estoque", com alternativas |
-| 8 | Pedido `8` está `shipped` com previsão em 28/02/2026 | O agente trata como **previsão vencida** (relógio da loja nos exemplos: 23/03/2026) e oferece abrir chamado |
-| 9 | O "hoje" real não bate com as datas da base (out/2025–mar/2026) | Relógio configurável (`EMPORIO_NOW`); os exemplos usam 23/03/2026 |
-| 10 | O manual é "documento interno" | O agente usa o conteúdo mas não cita "o manual" nem números de seção; feriados não estão no material, então o agente avisa que não tem o calendário |
-| 11 | Não há lista de "lojas parceiras" (§7.1 pede para sugerir "quando possível") | Não inventa nomes: redireciona sem citar loja |
+| 1 | Phone: cover and section 1.2 give **(67) 3341-4444**; section 7 says the WhatsApp number is **(67) 3321-4500** | Phone = 3341-4444; WhatsApp = 3321-4500 (both go in the prompt). The store should confirm |
+| 2 | E-mail: cover `contato@emporiodamusica.com.br`; section 1.2 `contato@empóriodamusica.com.br` (with accent) | Uses the unaccented version (a valid domain) |
+| 3 | Installments: the section 3 table says "up to 12x, minimum installment R$ 100"; section 3.1 details 3x with no minimum, 4–6x min. R$ 80, 7–12x min. R$ 100 | Section 3.1 wins (more specific). A purchase under R$ 50 is not split |
+| 4 | Exchange for defect: **30 days after purchase** (4.2) vs. legal warranty **90 days after receipt** (8.1) | Distinguishes them: direct exchange up to 30 days; afterwards legal warranty (90 d)/manufacturer, with the store able to intermediate |
+| 5 | Orders have no **actual delivery date**, only `estimated_delivery` | Uses the delivery estimate as the receipt date for the 7-day deadlines and says the staff will confirm |
+| 6 | The manual talks about the right of withdrawal for **online purchases**; the CSVs do not give the channel | Assumes orders with shipping/tracking are online |
+| 7 | Product `130` (Kala baritone) is `coming_soon` but has stock 2 and appears in delivered orders; `136` is `discontinued` with stock 13; `96` is `active` with stock 0 | Only `active` with stock > 0 is sellable; the others show as "coming soon"/"discontinued"/"out of stock", with alternatives |
+| 8 | Order `8` is `shipped` with an estimate of 28/02/2026 | The agent treats it as an **overdue estimate** (the store clock in the examples is 23/03/2026) and offers to open a ticket |
+| 9 | The real "today" does not match the dates in the data (Oct 2025 to Mar 2026) | Configurable clock (`EMPORIO_NOW`); the examples use 23/03/2026 |
+| 10 | The manual is an "internal document" | The agent uses the content but never cites "the manual" or section numbers; holidays are not in the material, so the agent says it does not have the calendar |
+| 11 | There is no list of "partner stores" (section 7.1 asks to suggest them "when possible") | Does not invent names: redirects without naming a store |
 
-## Teste com modelos locais (Ollama) — resultado negativo documentado
+## Local-model test (Ollama): a documented negative result
 
-Tentei gerar os exemplos com modelos locais (`qwen2.5:7b` e `llama3.1:8b`, via Ollama). Os transcritos estão em
-[`docs/ollama-runs/`](docs/ollama-runs). Resultado: **não servem para este agente com 8 ferramentas**. Exemplos
-reais: o qwen citou R$ 1.599 para um produto de R$ 599,90 e disse que a loja estava aberta num sábado depois do
-fechamento; o llama não achou o produto que estava no catálogo, inventou `order_id=12345` e e-mail falso, e abriu
-chamado com contato "N/A" para uma pergunta sobre bitcoin. Por isso o padrão do projeto é Groq. O Ollama continua
-suportado (`LLM_PROVIDER=ollama`) e as travas abaixo existem justamente por causa desses erros.
+I tried to generate the examples with local models (`qwen2.5:7b` and `llama3.1:8b`, via Ollama). The transcripts are in
+[`docs/ollama-runs/`](docs/ollama-runs). Result: **they are not suitable for this agent with 8 tools.** Real
+examples: qwen quoted R$ 1,599 for a R$ 599.90 product and said the store was open on a Saturday after closing
+time; llama did not find a product that was in the catalog, invented `order_id=12345` and a fake e-mail, and opened
+a ticket with contact "N/A" for a question about bitcoin. That is why the project default is Groq. Ollama is still
+supported (`LLM_PROVIDER=ollama`) and the guards below exist precisely because of those errors.
 
-**Travas determinísticas no código (`agent.py`)**: (1) `consultar_pedido`/`verificar_devolucao` só executam com
-número de pedido e contato que o próprio cliente escreveu; (2) `encaminhar_para_humano` é bloqueado se o resumo
-afirmar estado do produto que ninguém informou (ex.: "embalagem original") e se o agente tentar abrir chamado logo
-após consultar um pedido sem o cliente ter pedido; (3) resposta vazia do modelo é repetida; (4) a última rodada de
-ferramentas vai sem ferramentas para forçar texto.
+**Deterministic guards in the code (`agent.py`)**: (1) `consultar_pedido`/`verificar_devolucao` only run with an order
+number and a contact that the customer actually wrote; (2) `encaminhar_para_humano` is blocked if its summary claims a
+product condition nobody stated (e.g. "original packaging") and if the agent tries to open a ticket right after an
+order lookup without the customer asking; (3) an empty model reply is retried; (4) the last tool round goes without
+tools to force a text answer.
 
-## Limitações conhecidas / o que faria com mais tempo
+## Known limitations / what I would do with more time
 
-- **Modelo ainda erra**: mesmo o `gpt-oss-20b` às vezes generaliza ou exagera um detalhe (ex.: chamado descrevendo "defeito detectado" quando o cliente só perguntou se teria direito). As travas reduzem, não eliminam; em produção eu usaria um modelo maior, uma etapa de verificação da resposta contra os dados das ferramentas e avaliação contínua.
-- **Estabilidade medida, com ressalvas**: 15 conversas por rodada (5 cenários × 3), checagens determinísticas, `claude-haiku-5-5`. Resultado final 15/15 após dois ajustes de prompt; a rodada 1 teve 13/15 (somas de cabeça). Como ajustei checagens e prompt depois de ver falhas, isso não é prova independente, e só cobre 5 roteiros fixos. Detalhes, falhas e ressalvas em [`docs/stability.md`](docs/stability.md).
-- **Robustez e tom**: 15 tipos de entrada fora dos roteiros (gíria, erro de digitação, injeção, pedido de dados alheios, cliente furioso, inglês...) com 29/30 conversas limpas na segunda rodada; segurança passou em todas. Falhas, natureza de cada uma e ressalvas em [`docs/robustness.md`](docs/robustness.md).
-- **Avaliação automática**: montar um conjunto de ~50 perguntas com respostas esperadas (inclusive
-  adversariais: injeção de prompt, pedidos de dados alheios, preços "de cabeça") e medir ferramenta correta,
-  fidelidade ao dado e tom, com LLM-as-judge + checagens determinísticas. Hoje a cobertura é por testes
-  unitários de regras + 5 conversas reais.
-- **Verificação de identidade mais forte** (código por SMS/e-mail em vez de "e-mail ou telefone"), limite de
-  tentativas e rate limiting; hoje é um protótipo.
-- **Frete de outras cidades** (cotação por CEP) e **feriados**: sem dados; hoje o agente escala/avisa.
-- **Busca semântica** de produtos ("violão para criança", "para tocar choro") com embeddings sobre
-  descrição/specs; hoje é lexical com normalização.
-- **Histórico longo**: truncar/resumir mensagens antigas e usar *prompt caching* do prompt/ferramentas.
-- **Streaming** de respostas, canal WhatsApp real (webhook), observabilidade (traces de ferramentas,
-  custo/latência por turno) e testes de regressão de prompt.
-- Estoque/pedidos vêm de CSV estático: em produção seriam consultas ao ERP, sem estado local.
+- **The model still makes mistakes**: even `gpt-oss-20b` sometimes generalises or exaggerates a detail (e.g. a ticket
+  describing a "detected defect" when the customer only asked whether they had any right). The guards reduce this,
+  they do not eliminate it; in production I would use a larger model, a step that checks the answer against the
+  tool data, and continuous evaluation.
+- **Stability, measured with caveats**: 15 conversations per round (5 scenarios x 3), deterministic checks,
+  `claude-haiku-5-5`. Final result 15/15 after two prompt adjustments; round 1 scored 13/15 (sums done in the
+  model's head). Because I tuned checks and prompt after seeing failures, this is not independent proof, and it only
+  covers 5 fixed scripts. Details, failures and caveats in [`docs/stability.md`](docs/stability.md).
+- **Robustness and tone**: 15 kinds of input outside the scripts (slang, typos, injection, requests for other
+  people's data, an angry customer, English...) with 29/30 clean conversations in the second round; security passed
+  in all of them. Failures, their nature and caveats in [`docs/robustness.md`](docs/robustness.md).
+- **Automatic evaluation**: build a set of ~50 questions with expected answers (including adversarial ones: prompt
+  injection, requests for other people's data, prices "from memory") and measure correct tool, faithfulness to the
+  data and tone, with LLM-as-judge plus deterministic checks. Today coverage is unit tests of the rules plus 5 real
+  conversations.
+- **Stronger identity verification** (an SMS/e-mail code instead of "e-mail or phone"), attempt limits and rate
+  limiting; today it is a prototype.
+- **Shipping to other cities** (quote by postal code) and **holidays**: no data; today the agent escalates or warns.
+- **Semantic product search** ("guitar for a child", "to play choro") with embeddings over description/specs; today
+  it is lexical with normalisation.
+- **Long history**: truncate/summarise old messages and use *prompt caching* for the prompt and tools.
+- **Streaming** replies, a real WhatsApp channel (webhook), observability (tool traces, cost/latency per turn) and
+  prompt regression tests.
+- Stock and orders come from static CSVs: in production they would be ERP queries, with no local state.
 
-## Uso de assistentes de código (workflow)
+## Use of coding assistants (workflow)
 
-Usei o **Claude Code** (Claude Sonnet 5.5) como par de programação, com o fluxo abaixo:
+I used **Claude Code** (Claude Sonnet 5.5) as a pair programmer, with this workflow:
 
-1. **Leitura e especificação**: o assistente leu o enunciado, o manual (PDF) e os CSVs e listou regras, riscos
-   e armadilhas dos dados (as inconsistências da tabela acima saíram daqui).
-2. **Decisão de arquitetura**: recorte definido por mim com o assistente (function calling, sem RAG
-   vetorial/SQL livre, regras em código), com trade-offs discutidos antes de codar.
-3. **Implementação incremental com commits pequenos**: dados → políticas → ferramentas → agente/CLI →
-   testes → exemplos → README. Cada etapa foi executada localmente antes de seguir.
-4. **Testes nas regras de negócio** (preço/promoção, parcelas, prazos, verificação de identidade); um teste
-   escrito com expectativa errada (limite de 7x) foi corrigido conferindo a regra do §3.1, não o código.
-5. **Exemplos gerados com o agente real** (`scripts/run_scenarios.py`), sem edição manual do texto das respostas.
+1. **Reading and specification**: the assistant read the brief, the manual (PDF) and the CSVs and listed rules, risks
+   and data traps (the inconsistencies in the table above came from here).
+2. **Architecture decision**: the scope was set by me together with the assistant (function calling, no vector
+   RAG/free SQL, rules in code), with trade-offs discussed before coding.
+3. **Incremental implementation with small commits**: data, policies, tools, agent/CLI, tests, examples, README. Each
+   step was run locally before moving on.
+4. **Tests on the business rules** (price/promotion, installments, deadlines, identity verification); one test
+   written with a wrong expectation (the 7x limit) was fixed by checking the rule in section 3.1, not the code.
+5. **Examples generated with the real agent** (`scripts/run_scenarios.py`), with no manual editing of the reply text.
+6. **English documentation**: the case e-mail asks for English, so I translated this README and the two main reports
+   (`docs/stability.md`, `docs/robustness.md`) with the assistant on 31 Oct 2026, before sending the solution. Code,
+   comments, the prompt and the other raw reports/transcripts remain in Portuguese.
 
-Regra que segui: números e regras de negócio são conferidos contra a fonte (CSV/PDF), nunca confiados ao
-modelo, nem ao assistente de código.
+The rule I followed: numbers and business rules are checked against the source (CSV/PDF), never entrusted to the
+model, nor to the coding assistant.
