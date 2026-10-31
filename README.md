@@ -31,7 +31,9 @@ Variáveis: `ANTHROPIC_API_KEY` (obrigatória), `EMPORIO_MODEL` (padrão `claude
 
 ## Exemplos de interação
 
-Em [`examples/`](examples) há 5 conversas reais com o agente, com o rastro das ferramentas chamadas
+> **Pendente:** os arquivos abaixo ainda não foram gerados (falta uma chave válida da API); rode `python scripts/run_scenarios.py` para criá-los.
+
+O script produz 5 conversas reais em [`examples/`](examples) com o agente, com o rastro das ferramentas chamadas
 (linhas `🔧`):
 
 | Arquivo | O que demonstra |
