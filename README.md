@@ -12,7 +12,7 @@ Requisitos: Python 3.11+ e uma chave de API de um provedor compatível com OpenA
 ```bash
 git clone <este-repositório> && cd emporio-agent
 python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt            # ou: pip install -e ".[dev]"
+pip install -r requirements.txt            # instala o pacote (modo editável) e as dependências
 cp .env.example .env                       # preencha GROQ_API_KEY (ou LLM_PROVIDER=ollama)
 python -m emporio_agent.cli --debug        # chat no terminal (--debug mostra as ferramentas chamadas)
 python -m emporio_agent.cli --session ID   # retoma uma conversa salva
