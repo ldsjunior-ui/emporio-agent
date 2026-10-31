@@ -1,4 +1,4 @@
-"""Roda conversas roteirizadas contra o agente real e grava examples/*.md (com o rastro de ferramentas).
+"""Roda conversas roteirizadas contra o agente real (provedor de LLM configurado no .env) e grava examples/*.md (com o rastro de ferramentas).
 
 Uso:  python scripts/run_scenarios.py [nome ...]
 O relógio da loja é fixado por cenário (EMPORIO_NOW) para que os exemplos sejam reproduzíveis.
@@ -75,7 +75,7 @@ def run(name: str, spec: dict) -> None:
         f"# {spec['titulo']}",
         "",
         f"_Relógio da loja nesta conversa: {spec['agora']} (America/Campo_Grande). "
-        f"Modelo: `{config.MODEL}`. Linhas `🔧` mostram as ferramentas que o agente chamou._",
+        f"Modelo: `{config.provider()['name']}/{config.provider()['model']}`. Linhas `🔧` mostram as ferramentas que o agente chamou._",
         "",
     ]
     for user in spec["turnos"]:

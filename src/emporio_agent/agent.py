@@ -1,4 +1,4 @@
-"""Loop do agente: LLM com function calling (Anthropic Messages API)."""
+"""Loop do agente: LLM com function calling (API compatível com OpenAI)."""
 from __future__ import annotations
 
 import json
@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from . import config
+from .llm import ChatClient, LLMError
 from .prompts import system_prompt
 from .tools import TOOL_SPECS, run_tool
 
@@ -14,6 +15,13 @@ FALLBACK = (
     "Opa, tive um problema aqui do meu lado e não consegui concluir. Pode tentar de novo em instantes? "
     "Se preferir, a equipe atende no (67) 3341-4444."
 )
+
+# Anthropic-style specs -> formato "function" da API compatível com OpenAI
+OPENAI_TOOLS = [
+    {"type": "function", "function": {"name": t["name"], "description": t["description"],
+                                       "parameters": t["input_schema"]}}
+    for t in TOOL_SPECS
+]
 
 
 @dataclass
@@ -30,14 +38,11 @@ class Turn:
 
 
 class Agent:
-    """Uma conversa. O histórico (`messages`) é reenviado a cada turno e pode ser persistido em JSON."""
+    """Uma conversa. O histórico (`messages`, sem o system prompt) é reenviado a cada turno e pode ser
+    persistido em JSON. O system prompt é remontado a cada turno (traz data/hora atual)."""
 
     def __init__(self, client: Any = None, session_id: str | None = None, persist: bool = True):
-        if client is None:
-            import anthropic  # import tardio: testes usam cliente falso sem a dependência configurada
-
-            client = anthropic.Anthropic()
-        self.client = client
+        self.client = client or ChatClient()
         self.session_id = session_id or uuid.uuid4().hex[:8]
         self.persist = persist
         self.messages: list[dict[str, Any]] = []
@@ -57,48 +62,80 @@ class Agent:
             config.SESSIONS_DIR.mkdir(exist_ok=True)
             self._path.write_text(json.dumps(self.messages, ensure_ascii=False, indent=1), encoding="utf-8")
 
+    def _chat(self, allow_tools: bool) -> dict[str, Any]:
+        """Chama o modelo com resiliência em 3 camadas (padrão aprendido com gpt-oss na Groq):
+        1) retry; 2) se ainda falhar por erro transitório, responde SEM ferramentas;
+        3) nesse fallback o histórico é achatado em texto puro (tool_calls estruturados são o que o
+        modelo malforma ao reler)."""
+        system = [{"role": "system", "content": system_prompt()}]
+        tools = OPENAI_TOOLS if allow_tools else []
+        for _ in range(2):
+            try:
+                return self.client.chat(system + self.messages, tools)
+            except LLMError as exc:
+                if not exc.transient:
+                    raise
+        return self.client.chat(system + _flatten(self.messages), [])
+
     # -- turno ----------------------------------------------------------------------------
     def reply(self, user_text: str, on_tool: Callable[[ToolCall], None] | None = None) -> Turn:
         self.messages.append({"role": "user", "content": user_text})
         calls: list[ToolCall] = []
         checkpoint = len(self.messages)
         try:
-            for _ in range(config.MAX_TOOL_ROUNDS):
-                resp = self.client.messages.create(
-                    model=config.MODEL,
-                    max_tokens=config.MAX_TOKENS,
-                    system=system_prompt(),
-                    tools=TOOL_SPECS,
-                    messages=self.messages,
-                )
-                blocks = [_clean(b) for b in resp.content]
-                self.messages.append({"role": "assistant", "content": blocks})
-                if resp.stop_reason != "tool_use":
-                    text = "".join(b["text"] for b in blocks if b["type"] == "text").strip()
+            for round_ in range(config.MAX_TOOL_ROUNDS):
+                # Última rodada: sem ferramentas, o modelo é obrigado a responder em texto.
+                allow_tools = round_ < config.MAX_TOOL_ROUNDS - 1
+                msg = self._chat(allow_tools)
+                tool_calls = msg.get("tool_calls") or []
+                self.messages.append(_clean(msg))
+                if not tool_calls:
+                    text = (msg.get("content") or "").strip()
                     self._save()
                     return Turn(text or FALLBACK, calls)
-                results = []
-                for b in blocks:
-                    if b["type"] != "tool_use":
-                        continue
-                    out = run_tool(b["name"], b["input"])
-                    call = ToolCall(b["name"], b["input"], out)
+                for tc in tool_calls:
+                    fn = tc["function"]
+                    try:
+                        args = json.loads(fn.get("arguments") or "{}")
+                    except json.JSONDecodeError:
+                        args = {}
+                    out = run_tool(fn["name"], args)
+                    call = ToolCall(fn["name"], args, out)
                     calls.append(call)
                     if on_tool:
                         on_tool(call)
-                    results.append({"type": "tool_result", "tool_use_id": b["id"], "content": out})
-                self.messages.append({"role": "user", "content": results})
+                    self.messages.append({"role": "tool", "tool_call_id": tc["id"], "content": out})
             raise RuntimeError("limite de rodadas de ferramentas excedido")
         except Exception:
-            # Não deixa um histórico quebrado (tool_use sem tool_result) contaminar a sessão.
+            # Não deixa um histórico quebrado (tool_calls sem resposta) contaminar a sessão.
             del self.messages[checkpoint - 1:]
             raise
 
 
-def _clean(block: Any) -> dict[str, Any]:
-    """Reduz o bloco do SDK ao mínimo reenviável (evita campos extras rejeitados pela API)."""
-    if block.type == "text":
-        return {"type": "text", "text": block.text}
-    if block.type == "tool_use":
-        return {"type": "tool_use", "id": block.id, "name": block.name, "input": block.input}
-    return {"type": "text", "text": ""}
+def _clean(msg: dict[str, Any]) -> dict[str, Any]:
+    """Mantém só os campos reenviáveis (provedores devolvem extras como `reasoning`)."""
+    out: dict[str, Any] = {"role": "assistant", "content": msg.get("content") or ""}
+    if msg.get("tool_calls"):
+        out["tool_calls"] = [
+            {"id": tc["id"], "type": "function",
+             "function": {"name": tc["function"]["name"], "arguments": tc["function"].get("arguments") or "{}"}}
+            for tc in msg["tool_calls"]
+        ]
+    return out
+
+
+def _flatten(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Histórico estruturado -> chat de texto: resultados de ferramentas viram contexto do usuário."""
+    names: dict[str, str] = {}
+    out: list[dict[str, Any]] = []
+    for m in messages:
+        if m["role"] == "assistant" and m.get("tool_calls"):
+            for tc in m["tool_calls"]:
+                names[tc["id"]] = tc["function"]["name"]
+            if m.get("content"):
+                out.append({"role": "assistant", "content": m["content"]})
+        elif m["role"] == "tool":
+            out.append({"role": "user", "content": f"[resultado de {names.get(m['tool_call_id'], 'ferramenta')}]: {m['content']}"})
+        else:
+            out.append({"role": m["role"], "content": m["content"]})
+    return out

@@ -1,0 +1,63 @@
+"""Cliente mínimo para APIs compatíveis com OpenAI (/chat/completions): Groq, Ollama, OpenAI, Gemini...
+
+Usa só `httpx` (já dependência transitiva), com retry em 429/5xx (o plano gratuito da Groq limita
+requisições por minuto). A interface é uma só — `chat(messages, tools) -> dict` — para que o agente
+não dependa de nenhum SDK e os testes usem um cliente falso.
+"""
+from __future__ import annotations
+
+import time
+from typing import Any
+
+import httpx
+
+from . import config
+
+
+class LLMError(RuntimeError):
+    def __init__(self, message: str, status: int | None = None):
+        super().__init__(message)
+        self.status = status
+
+    @property
+    def transient(self) -> bool:
+        """Erros que valem retry/degradação (inclui o 400 'failed_generation' do gpt-oss na Groq,
+        quando o modelo malforma um tool_call)."""
+        return self.status in (None, 400, 429, 500, 502, 503) and (
+            self.status != 400 or "failed_generation" in str(self) or "Parsing failed" in str(self)
+        )
+
+
+class ChatClient:
+    def __init__(self, timeout: float = 60.0, retries: int = 3):
+        self.cfg = config.provider()
+        if self.cfg["needs_key"] and not self.cfg["api_key"]:
+            raise LLMError(
+                f"Chave ausente para o provedor '{self.cfg['name']}'. Defina no .env (veja .env.example)."
+            )
+        self.http = httpx.Client(timeout=timeout)
+        self.retries = retries
+
+    def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict[str, Any]:
+        headers = {"Content-Type": "application/json"}
+        if self.cfg["api_key"]:
+            headers["Authorization"] = f"Bearer {self.cfg['api_key']}"
+        body = {
+            "model": self.cfg["model"],
+            "messages": messages,
+            "tools": tools,
+            "tool_choice": "auto",
+            "max_tokens": config.MAX_TOKENS,
+            "temperature": config.TEMPERATURE,
+        }
+        last, status = "", None
+        for attempt in range(self.retries + 1):
+            resp = self.http.post(f"{self.cfg['base_url']}/chat/completions", json=body, headers=headers)
+            if resp.status_code == 200:
+                return resp.json()["choices"][0]["message"]
+            last, status = f"HTTP {resp.status_code}: {resp.text[:300]}", resp.status_code
+            if resp.status_code in (429, 500, 502, 503) and attempt < self.retries:
+                time.sleep(float(resp.headers.get("retry-after", 2 ** attempt * 2)))
+                continue
+            break
+        raise LLMError(last, status)

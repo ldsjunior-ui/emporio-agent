@@ -68,6 +68,13 @@ def _product_card(store: Store, p: Product, detailed: bool = False) -> dict[str,
     if detailed:
         card["descricao"] = p.description
         card["especificacoes"] = p.specs
+        card["promocao_ativa"] = "promocao" in card
+        ended = [
+            {"nome": q.description, "desconto_percentual": q.discount_percent}
+            for q in store.promotions if q.product_id == p.product_id and not q.is_active
+        ]
+        if ended:
+            card["promocoes_encerradas"] = ended  # só para explicar "já acabou"; NÃO valem mais
     else:
         card["resumo"] = p.description.split(". ")[0].rstrip(".") + "."
     return card
@@ -264,6 +271,15 @@ def verificar_devolucao(order_id: int, contato_do_cliente: str, motivo: str) -> 
     received = order.estimated_delivery or order.order_date
     since_receipt = (today - received).days
     since_purchase = (today - order.order_date).days
+    arrep_limit = received + timedelta(days=7)
+    defect_limit = order.order_date + timedelta(days=30)
+    legal_limit = received + timedelta(days=90)
+    base["resumo_de_prazos"] = {
+        "arrependimento_7_dias_apos_recebimento": {"limite": arrep_limit.isoformat(), "no_prazo": today <= arrep_limit},
+        "troca_por_preferencia_7_dias": {"limite": arrep_limit.isoformat(), "no_prazo": today <= arrep_limit},
+        "troca_por_defeito_30_dias_apos_compra": {"limite": defect_limit.isoformat(), "no_prazo": today <= defect_limit},
+        "garantia_legal_90_dias_apos_recebimento": {"limite": legal_limit.isoformat(), "no_prazo": today <= legal_limit},
+    }
     base.update(
         data_referencia_recebimento=f"{received.isoformat()} (previsão de entrega, usada como data de recebimento)",
         dias_desde_recebimento=since_receipt,

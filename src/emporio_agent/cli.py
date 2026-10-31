@@ -21,7 +21,7 @@ def main(argv: list[str] | None = None) -> int:
     console = Console()
     try:
         agent = Agent(session_id=args.session)
-    except Exception as exc:  # ex.: ANTHROPIC_API_KEY ausente
+    except Exception as exc:  # ex.: chave do provedor ausente
         console.print(f"[red]Não foi possível iniciar o agente:[/red] {exc}")
         return 1
 
@@ -29,8 +29,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.debug:
             console.print(f"  [dim]🔧 {call.name}({call.args})[/dim]")
 
+    cfg = config.provider()
     console.print(f"[bold]Empório da Música[/bold] · sessão [cyan]{agent.session_id}[/cyan] · "
-                  "digite 'sair' para encerrar\n")
+                  f"[dim]{cfg['name']}/{cfg['model']}[/dim] · digite 'sair' para encerrar\n")
     if agent.messages:
         console.print(f"[dim]({len(agent.messages)} mensagens restauradas da sessão)[/dim]\n")
     while True:
