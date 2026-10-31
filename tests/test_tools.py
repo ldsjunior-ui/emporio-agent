@@ -117,3 +117,17 @@ def test_handoff_gera_protocolo_sequencial():
 def test_run_tool_argumento_invalido_nao_explode():
     out = json.loads(t.run_tool("buscar_produtos", {"campo_falso": 1}))
     assert "erro" in out
+
+
+def test_prazos_devolucao_deixam_claro_o_que_encerrou_e_o_que_vale():
+    from emporio_agent.data_store import get_store
+
+    r = t.verificar_devolucao(7, get_store().customers[14].email, "arrependimento")
+    prazos = r["resumo_de_prazos"]
+    assert prazos["troca_direta_por_defeito (30 dias após a COMPRA)"].startswith("ENCERRADO")
+    assert prazos["garantia_legal_contra_defeito (90 dias após o recebimento)"].startswith("VIGENTE")
+
+
+def test_listagem_informa_quantos_nao_foram_exibidos():
+    r = t.buscar_produtos("violões", categoria_id=5, preco_max=1000, limite=8)
+    assert r["nao_exibidos_dentro_do_filtro"] == r["total_encontrado"] - 8

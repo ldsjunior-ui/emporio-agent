@@ -134,6 +134,7 @@ def buscar_produtos(
     return {
         "total_encontrado": len(rows),
         "exibindo": min(limite, len(rows)),
+        "nao_exibidos_dentro_do_filtro": max(0, len(rows) - limite),
         "busca_aproximada": approximate,
         "indisponiveis_ocultados": hidden,
         "criterio_preco": "preço final a pagar (já com promoção ativa, se houver)",
@@ -274,11 +275,13 @@ def verificar_devolucao(order_id: int, contato_do_cliente: str, motivo: str) -> 
     arrep_limit = received + timedelta(days=7)
     defect_limit = order.order_date + timedelta(days=30)
     legal_limit = received + timedelta(days=90)
+    def situacao(limit: date) -> str:
+        return f"VIGENTE até {limit.isoformat()}" if today <= limit else f"ENCERRADO desde {limit.isoformat()}"
+
     base["resumo_de_prazos"] = {
-        "arrependimento_7_dias_apos_recebimento": {"limite": arrep_limit.isoformat(), "no_prazo": today <= arrep_limit},
-        "troca_por_preferencia_7_dias": {"limite": arrep_limit.isoformat(), "no_prazo": today <= arrep_limit},
-        "troca_por_defeito_30_dias_apos_compra": {"limite": defect_limit.isoformat(), "no_prazo": today <= defect_limit},
-        "garantia_legal_90_dias_apos_recebimento": {"limite": legal_limit.isoformat(), "no_prazo": today <= legal_limit},
+        "arrependimento_e_troca_por_preferencia (7 dias após o recebimento)": situacao(arrep_limit),
+        "troca_direta_por_defeito (30 dias após a COMPRA)": situacao(defect_limit),
+        "garantia_legal_contra_defeito (90 dias após o recebimento)": situacao(legal_limit),
     }
     base.update(
         data_referencia_recebimento=f"{received.isoformat()} (previsão de entrega, usada como data de recebimento)",

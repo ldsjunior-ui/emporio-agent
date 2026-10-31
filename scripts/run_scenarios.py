@@ -69,6 +69,9 @@ SCENARIOS = {
 
 
 def run(name: str, spec: dict) -> None:
+    import shutil
+
+    shutil.rmtree(config.OUTBOX_DIR, ignore_errors=True)  # protocolo começa em 0001 em cada cenário
     os.environ["EMPORIO_NOW"] = spec["agora"]
     agent = Agent(persist=False)
     lines = [
