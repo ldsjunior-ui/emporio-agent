@@ -9,6 +9,7 @@ from rich.console import Console
 
 from . import config
 from .agent import FALLBACK, Agent, ToolCall
+from .llm import LLMError
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -47,6 +48,14 @@ def main(argv: list[str] | None = None) -> int:
         try:
             turn = agent.reply(text, on_tool=show_tool)
             console.print(f"[bold blue]Téo:[/bold blue] {turn.reply}\n")
+        except LLMError as exc:
+            if exc.status in (401, 403):
+                console.print("[red]A API recusou a chave (401/403). Confira a chave no .env e o provedor "
+                              "(LLM_PROVIDER).[/red]")
+                return 1
+            if args.debug:
+                console.print(f"[red]{type(exc).__name__}: {exc}[/red]")
+            console.print(f"[bold blue]Téo:[/bold blue] {FALLBACK}\n")
         except Exception as exc:
             if args.debug:
                 console.print(f"[red]{type(exc).__name__}: {exc}[/red]")

@@ -145,3 +145,11 @@ def test_handoff_libera_quando_cliente_pede():
 def test_resposta_vazia_tenta_de_novo():
     c = FakeClient(say(""), say("Oi!"))
     assert Agent(client=c, persist=False).reply("oi").reply == "Oi!"
+
+
+def test_placeholder_do_env_example_conta_como_chave_ausente(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "groq")
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    monkeypatch.setenv("GROQ_API_KEY", "gsk_...")
+    with pytest.raises(LLMError, match="Chave ausente"):
+        ChatClient()

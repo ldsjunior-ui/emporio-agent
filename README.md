@@ -157,6 +157,7 @@ ferramentas vai sem ferramentas para forçar texto.
 ## Limitações conhecidas / o que faria com mais tempo
 
 - **Modelo ainda erra**: mesmo o `gpt-oss-20b` às vezes generaliza ou exagera um detalhe (ex.: chamado descrevendo "defeito detectado" quando o cliente só perguntou se teria direito). As travas reduzem, não eliminam; em produção eu usaria um modelo maior, uma etapa de verificação da resposta contra os dados das ferramentas e avaliação contínua.
+- **Estabilidade medida só em parte**: há `scripts/stability.py` (15 conversas com checagens determinísticas, incluindo aterramento de todo valor em R$), mas a cota gratuita do Groq esgotou após 4 conversas; ver [`docs/stability.md`](docs/stability.md) para o que foi medido, o defeito real que isso revelou (horário) e como completar.
 - **Avaliação automática**: montar um conjunto de ~50 perguntas com respostas esperadas (inclusive
   adversariais: injeção de prompt, pedidos de dados alheios, preços "de cabeça") e medir ferramenta correta,
   fidelidade ao dado e tom, com LLM-as-judge + checagens determinísticas. Hoje a cobertura é por testes

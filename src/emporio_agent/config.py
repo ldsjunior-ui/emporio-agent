@@ -43,7 +43,14 @@ def provider() -> dict:
     return {
         "name": name,
         "base_url": os.getenv("LLM_BASE_URL", preset["base_url"]).rstrip("/"),
-        "api_key": os.getenv("LLM_API_KEY") or (os.getenv(key_env) if key_env else None),
+        "api_key": _real_key(os.getenv("LLM_API_KEY") or (os.getenv(key_env) if key_env else None)),
         "model": os.getenv("LLM_MODEL", preset["model"]),
         "needs_key": key_env is not None,
     }
+
+
+def _real_key(value: str | None) -> str | None:
+    """Placeholders do .env.example (ex.: 'gsk_...') contam como chave ausente."""
+    if not value or value.endswith("...") or value.strip() == "":
+        return None
+    return value

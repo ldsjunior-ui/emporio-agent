@@ -346,6 +346,7 @@ def status_loja_agora() -> dict[str, Any]:
     is_open = bool(w and w[0] <= now < w[1])
     if is_open:
         nxt = f"Fecha hoje às {w[1]:%H:%M}."
+        situacao = f"ABERTA agora; fecha hoje às {w[1]:%H}h."
     else:
         d = now.date() if (w and now < w[0]) else now.date() + timedelta(days=1)
         while not window(d):
@@ -353,10 +354,17 @@ def status_loja_agora() -> dict[str, Any]:
         opening = window(d)[0]
         dias = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"]
         nxt = f"Reabre {'hoje' if d == now.date() else dias[d.weekday()] + ' (' + d.strftime('%d/%m') + ')'} às {opening:%H:%M}."
+        if not w:
+            situacao = "FECHADA: hoje não há expediente (domingo)."
+        elif now < w[0]:
+            situacao = f"FECHADA agora: ainda não abriu hoje (abre às {w[0]:%H}h)."
+        else:
+            situacao = f"FECHADA agora: o expediente de hoje já terminou às {w[1]:%H}h."
     return {
         "agora": now.strftime("%d/%m/%Y %H:%M"),
         "dia_da_semana": ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"][now.weekday()],
         "loja_aberta": is_open,
+        "situacao": situacao,
         "proximo_horario": nxt,
         "ressalva": "Não tenho calendário de feriados (loja fecha em feriados) nem aviso de horário estendido em datas especiais.",
     }

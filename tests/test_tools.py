@@ -99,7 +99,10 @@ def test_loja_aberta_segunda_manha_e_fechada_domingo(monkeypatch):
     s = t.status_loja_agora()
     assert s["loja_aberta"] is False and "segunda" in s["proximo_horario"]
     monkeypatch.setenv("EMPORIO_NOW", "2026-03-28 13:30")  # sábado após 13h
-    assert t.status_loja_agora()["loja_aberta"] is False
+    r = t.status_loja_agora()
+    assert r["loja_aberta"] is False and "já terminou às 13h" in r["situacao"]
+    monkeypatch.setenv("EMPORIO_NOW", "2026-03-23 07:00")  # segunda antes de abrir
+    assert "ainda não abriu hoje" in t.status_loja_agora()["situacao"]
 
 
 def test_politicas_todos_topicos():
