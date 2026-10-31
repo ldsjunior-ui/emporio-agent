@@ -15,6 +15,8 @@ OUTBOX_DIR = ROOT / "outbox"
 PROVIDERS = {
     "groq": {"base_url": "https://api.groq.com/openai/v1", "key_env": "GROQ_API_KEY", "model": "openai/gpt-oss-120b"},
     "ollama": {"base_url": "http://localhost:11434/v1", "key_env": None, "model": "qwen2.5:7b"},
+    # Endpoint de compatibilidade OpenAI da Anthropic (chat/completions com tools).
+    "anthropic": {"base_url": "https://api.anthropic.com/v1", "key_env": "ANTHROPIC_API_KEY", "model": "claude-haiku-5-5"},
     "openai": {"base_url": "https://api.openai.com/v1", "key_env": "OPENAI_API_KEY", "model": "gpt-4.1-mini"},
 }
 MAX_TOKENS = 1024

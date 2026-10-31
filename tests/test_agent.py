@@ -153,3 +153,34 @@ def test_placeholder_do_env_example_conta_como_chave_ausente(monkeypatch):
     monkeypatch.setenv("GROQ_API_KEY", "gsk_...")
     with pytest.raises(LLMError, match="Chave ausente"):
         ChatClient()
+
+
+def test_provedor_anthropic_usa_endpoint_de_compatibilidade(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-teste-qualquer")
+    monkeypatch.delenv("LLM_MODEL", raising=False)
+    cfg = ChatClient().cfg
+    assert cfg["base_url"] == "https://api.anthropic.com/v1" and cfg["model"].startswith("claude-")
+
+
+def test_corpo_da_requisicao_omite_tools_vazio_e_temperature_na_anthropic(monkeypatch):
+    sent = {}
+
+    class R:
+        status_code = 200
+        headers = {}
+
+        def json(self):
+            return {"choices": [{"message": {"role": "assistant", "content": "ok"}}], "usage": {}}
+
+    class H:
+        def post(self, url, json, headers):
+            sent.update(json)
+            return R()
+
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-teste-qualquer")
+    c = ChatClient()
+    c.http = H()
+    c.chat([{"role": "user", "content": "oi"}], [])
+    assert "tools" not in sent and "tool_choice" not in sent and "temperature" not in sent

@@ -15,6 +15,9 @@ import httpx
 from . import config
 
 
+USAGE = {"prompt_tokens": 0, "completion_tokens": 0, "calls": 0}  # acumulado do processo (medição de custo)
+
+
 class LLMError(RuntimeError):
     def __init__(self, message: str, status: int | None = None):
         super().__init__(message)
@@ -43,19 +46,26 @@ class ChatClient:
         headers = {"Content-Type": "application/json"}
         if self.cfg["api_key"]:
             headers["Authorization"] = f"Bearer {self.cfg['api_key']}"
-        body = {
+        body: dict[str, Any] = {
             "model": self.cfg["model"],
             "messages": messages,
-            "tools": tools,
-            "tool_choice": "auto",
             "max_tokens": config.MAX_TOKENS,
-            "temperature": config.TEMPERATURE,
         }
+        if tools:  # alguns provedores (Anthropic) recusam `tools` vazio
+            body["tools"] = tools
+            body["tool_choice"] = "auto"
+        if self.cfg["name"] != "anthropic":  # modelos Claude atuais recusam `temperature`
+            body["temperature"] = config.TEMPERATURE
         last, status = "", None
         for attempt in range(self.retries + 1):
             resp = self.http.post(f"{self.cfg['base_url']}/chat/completions", json=body, headers=headers)
             if resp.status_code == 200:
-                return resp.json()["choices"][0]["message"]
+                data = resp.json()
+                u = data.get("usage") or {}
+                USAGE["prompt_tokens"] += u.get("prompt_tokens", 0)
+                USAGE["completion_tokens"] += u.get("completion_tokens", 0)
+                USAGE["calls"] += 1
+                return data["choices"][0]["message"]
             last, status = f"HTTP {resp.status_code}: {resp.text[:300]}", resp.status_code
             if resp.status_code in (429, 500, 502, 503) and attempt < self.retries:
                 wait = float(resp.headers.get("retry-after", 2 ** attempt * 2))

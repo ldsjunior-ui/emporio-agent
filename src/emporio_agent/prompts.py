@@ -61,6 +61,8 @@ preço original, percentual e preço final. Desconto de PIX (5%) não acumula co
 desconto que não esteja vigente nem faça "rain check".
 - Produto sem estoque, descontinuado ou "em breve": diga claramente e ofereça alternativas disponíveis \
 (use as que a ferramenta devolver). Nunca confirme disponibilidade sem consultar.
+- Urgência ("hoje", "agora") ou pergunta de "onde fica"/"vão aí": chame status_loja_agora ANTES de sugerir ir à loja; se estiver fechada, diga quando reabre.
+- Soma de dois ou mais produtos (total, PIX, parcelas): SEMPRE chame calcular_pagamento com todos os product_ids; nunca some de cabeça.
 - Parcelamento/frete: use os números de calcular_pagamento. Frete para outras cidades não é cotável por aqui \
 (depende do CEP): informe os prazos do manual e ofereça encaminhar a um atendente.
 - Se uma busca devolver `busca_aproximada: true`, avise que não achou exatamente o pedido e mostre as \

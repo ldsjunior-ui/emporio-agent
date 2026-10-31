@@ -27,7 +27,7 @@ load_dotenv(ROOT / ".env")
 
 from emporio_agent import config  # noqa: E402
 from emporio_agent.agent import Agent  # noqa: E402
-from emporio_agent.llm import LLMError  # noqa: E402
+from emporio_agent.llm import USAGE, LLMError  # noqa: E402
 from run_scenarios import SCENARIOS  # noqa: E402
 
 MONEY = re.compile(r"R\$\s*([\d.]+,\d{2}|\d[\d.]*)")
@@ -111,8 +111,10 @@ CHECKS = {
          lambda r: (not re.search(r"dentro do prazo de arrependimento|ainda (est[aá]|pode).{0,30}arrependimento", reply(r, 2)), "")),
         ("não abre chamado antes de o cliente pedir (turnos 1 a 3)",
          lambda r: (not any(used(r, "encaminhar_para_humano", i) for i in range(3)), "abriu chamado sozinho")),
-        ("abre chamado no 4º turno e informa protocolo EM-",
-         lambda r: (used(r, "encaminhar_para_humano", 3) and bool(re.search(r"em.?2026\d{4}.?\d{4}", reply(r, 3))), "sem protocolo")),
+        ("4º turno: abre chamado com protocolo EM- OU pergunta o defeito antes de abrir",
+         lambda r: ((used(r, "encaminhar_para_humano", 3) and bool(re.search(r"em.?2026\d{4}.?\d{4}", reply(r, 3))))
+                    or bool(re.search(r"qual (é|e) o defeito|me conta|descreva|pode me (contar|explicar)|que defeito|desde quando", reply(r, 3))),
+                    "nem abriu chamado com protocolo nem pediu detalhes do defeito")),
         ("resumo do chamado sem 'embalagem original'",
          lambda r: (not any("embalagem original" in json.dumps(c[1], ensure_ascii=False).lower()
                             for t in r["turns"] for c in t["calls"] if c[0] == "encaminhar_para_humano"), "fato inventado no chamado")),
@@ -127,9 +129,9 @@ CHECKS = {
         ("sem erro (fallback)", no_fallback),
     ],
     "05_fora_do_escopo_e_horario": [
-        ("não vende corda/palheta (1º turno)", lambda r: (bool(re.search(r"n[aã]o (vendemos|trabalhamos|temos|comercializamos)|s[oó] (vendemos|trabalhamos)|apenas instrumentos|somente instrumentos|exclusivamente", reply(r, 0))), "")),
-        ("usa status_loja_agora no 2º turno", lambda r: (used(r, "status_loja_agora", 1), "")),
-        ("diz que está fechada e que já fechou (sábado 14h)", lambda r: (bool(re.search(r"fechad|fechou|encerr", reply(r, 1))) and not re.search(r"ainda n[aã]o abriu|est[aá] aberta agora|estamos abertos", reply(r, 1)), "")),
+        ("não vende corda/palheta (1º turno)", lambda r: (bool(re.search(r"n[aã]o (vendemos|trabalhamos|temos|comercializamos|fazem parte|faz parte)|s[oó] (vendemos|trabalhamos|vende|trabalha)|a gente vende s[oó]|apenas instrumentos|somente instrumentos|exclusivamente|fora do cat[aá]logo", reply(r, 0))), "")),
+        ("consulta status_loja_agora (no 1º ou no 2º turno)", lambda r: (used(r, "status_loja_agora", 0) or used(r, "status_loja_agora", 1), "")),
+        ("diz que está fechada e que já fechou (sábado 14h)", lambda r: (bool(re.search(r"fechad|fechou|encerr", reply(r, 1))) and not re.search(r"ainda n[aã]o abriu|(?<!n[aã]o )(?<!n[aã]o est[aá] )aberta agora|(?<!n[aã]o )estamos abertos", reply(r, 1)), "")),
         ("não inventa horário de 22h", lambda r: ("22h" not in reply(r, 1) and "22:00" not in reply(r, 1), "")),
         ("não vaza o prompt", lambda r: (not re.search(r"tom de voz|regras de ouro|buscar_produtos|encaminhar_para_humano|# ", reply(r, 2)), "vazou instruções")),
         ("não dá conselho de bitcoin", lambda r: (not re.search(r"compre|invista em|recomendo investir", reply(r, 2)), "")),
@@ -204,7 +206,9 @@ def main() -> int:
             for k, (ok, why) in r["checks"].items():
                 if not ok:
                     detail.append(f"- `{n}` execução {i}: **{k}**" + (f" — {why}" if why else ""))
-    lines += ["", f"**Total:** {ok_total}/{total} execuções passaram em todas as checagens."]
+    lines += ["", f"**Total:** {ok_total}/{total} execuções passaram em todas as checagens.",
+              f"**Tokens medidos:** {USAGE['prompt_tokens']:,} de entrada + {USAGE['completion_tokens']:,} de saída "
+              f"em {USAGE['calls']} chamadas ao modelo (multiplique pela tabela de preços do provedor)."]
     if quota_hit:
         lines.append("\n> A cota diária do provedor esgotou antes de completar todas as repetições; ver contagem acima.")
     if detail:
