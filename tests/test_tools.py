@@ -38,7 +38,7 @@ def test_pix_nao_acumula_com_promocao():
     assert pago["total_no_pix"] == pago["total_a_prazo"]
     sem_promo = t.calcular_pagamento([95])  # 2199,00 sem promoção
     assert sem_promo["total_no_pix"] == "R$ 2.089,05"
-    assert sem_promo["combinar_formas_de_pagamento"] == "permitido"
+    assert sem_promo["combinar_formas_de_pagamento"].startswith("permitido")
 
 
 def test_parcelamento_regras_31():

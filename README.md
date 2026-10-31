@@ -7,13 +7,13 @@ catálogo, preço, estoque, pedidos, trocas/devoluções e regras da loja, consu
 
 ## Como rodar
 
-Requisitos: Python 3.11+ e uma chave da API da Anthropic.
+Requisitos: Python 3.11+ e uma chave de API de um provedor compatível com OpenAI (padrão: [Groq](https://console.groq.com), plano gratuito) **ou** o [Ollama](https://ollama.com) local, sem chave.
 
 ```bash
 git clone <este-repositório> && cd emporio-agent
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt            # ou: pip install -e ".[dev]"
-cp .env.example .env                       # preencha ANTHROPIC_API_KEY
+cp .env.example .env                       # preencha GROQ_API_KEY (ou LLM_PROVIDER=ollama)
 python -m emporio_agent.cli --debug        # chat no terminal (--debug mostra as ferramentas chamadas)
 python -m emporio_agent.cli --session ID   # retoma uma conversa salva
 ```
@@ -26,15 +26,17 @@ pip install -r requirements-dev.txt && python -m pytest -q
 
 Regerar os exemplos de conversa (usa a API, ~5 conversas): `python scripts/run_scenarios.py`.
 
-Variáveis: `ANTHROPIC_API_KEY` (obrigatória), `EMPORIO_MODEL` (padrão `claude-sonnet-5-5`),
-`EMPORIO_NOW="2026-03-23 10:30"` (fixa o "agora" da loja — usado nos exemplos e testes).
+Variáveis: `LLM_PROVIDER` (`groq` padrão | `ollama` | `openai`), `GROQ_API_KEY`, `LLM_MODEL` (padrão
+`openai/gpt-oss-120b` na Groq, `qwen2.5:7b` no Ollama), `LLM_BASE_URL`/`LLM_API_KEY` para qualquer outra API
+compatível com OpenAI, e `EMPORIO_NOW="2026-03-23 10:30"` (fixa o "agora" da loja — usado nos exemplos e testes).
+
+Com Ollama (sem chave): `ollama pull qwen2.5:7b` e `LLM_PROVIDER=ollama python -m emporio_agent.cli --debug`.
 
 ## Exemplos de interação
 
-> **Pendente:** os arquivos abaixo ainda não foram gerados (falta uma chave válida da API); rode `python scripts/run_scenarios.py` para criá-los.
-
-O script produz 5 conversas reais em [`examples/`](examples) com o agente, com o rastro das ferramentas chamadas
-(linhas `🔧`):
+Em [`examples/`](examples) há 5 conversas reais com o agente (`openai/gpt-oss-120b` na Groq), geradas por
+`python scripts/run_scenarios.py`, com o rastro das ferramentas chamadas (linhas `🔧`). O texto das respostas é
+saída do modelo, sem edição manual; como o modelo varia entre execuções, uma nova rodada pode sair um pouco diferente:
 
 | Arquivo | O que demonstra |
 |---|---|
@@ -47,15 +49,18 @@ O script produz 5 conversas reais em [`examples/`](examples) com o agente, com o
 ## Arquitetura
 
 ```
- mensagem ─► Agent (loop de function calling) ─► Claude ──┐
-                ▲                                         │ tool_use
-                │ tool_result (JSON)                      ▼
+ mensagem ─► Agent (loop de function calling) ─► LLM (Groq/Ollama/…) ─┐
+                ▲                                                       │ tool_calls
+                │ resultado (JSON)                                      ▼
                 └──────────── tools.py ◄── data_store.py (CSVs)   policies.py (manual em seções)
 ```
 
-- `src/emporio_agent/agent.py` — loop: envia histórico + ferramentas, executa as `tool_use`, devolve os
-  `tool_result` até o modelo responder (máx. 8 rodadas). Em erro, faz rollback do turno (nunca deixa
-  `tool_use` órfão no histórico) e o CLI mostra uma mensagem amigável.
+- `src/emporio_agent/agent.py` — loop: envia histórico + ferramentas, executa as `tool_calls`, devolve os
+  resultados até o modelo responder (máx. 8 rodadas; a última vai sem ferramentas para forçar texto). Em erro
+  transitório faz retry e, se persistir, responde sem ferramentas com o histórico achatado em texto (o
+  `gpt-oss` na Groq às vezes malforma `tool_calls`: erro 400 `failed_generation`). Em erro, faz rollback do
+  turno (nunca deixa `tool_calls` órfão no histórico) e o CLI mostra uma mensagem amigável.
+- `src/emporio_agent/llm.py` — cliente HTTP mínimo (`httpx`) para APIs compatíveis com OpenAI, com retry em 429/5xx.
 - `src/emporio_agent/prompts.py` — persona **Téo** + regras de decisão (quando consultar dados, quando
   consultar políticas, quando escalar) + escopo/segurança.
 - `src/emporio_agent/tools.py` — 8 ferramentas: `buscar_produtos`, `obter_produto`, `calcular_pagamento`,
@@ -63,7 +68,7 @@ O script produz 5 conversas reais em [`examples/`](examples) com o agente, com o
   `encaminhar_para_humano`.
 - `src/emporio_agent/data_store.py` / `policies.py` — carga dos CSVs e do manual (`data/politicas_da_loja.md`,
   transcrição fiel do PDF).
-- `tests/` — 19 testes de regras de negócio e do loop.
+- `tests/` — 26 testes de regras de negócio e do loop (cliente de LLM falso, sem rede).
 
 ## Decisões técnicas (e por quê)
 
@@ -86,16 +91,20 @@ e sem agente de SQL.**
   em R$). O modelo não faz conta nem aritmética de datas; isso elimina uma classe inteira de alucinação e
   deixa os testes cobrirem as regras.
 
-**Modelo/provedor: Anthropic Claude (`claude-sonnet-5-5`) via API.** Bom uso de ferramentas, português
-fluente e tom controlável; configurável por `EMPORIO_MODEL` (um modelo menor, como Haiku, tende a bastar para
-catálogo e custa menos; para produção eu mediria com um conjunto de avaliação antes de trocar).
+**Modelo/provedor: API compatível com OpenAI; padrão Groq + `openai/gpt-oss-120b`.** Escolhi pela
+combinação de plano gratuito (qualquer revisor reproduz sem custo), baixa latência e suporte a *function
+calling*. Um cliente único (`llm.py`) fala com Groq, Ollama (local, `qwen2.5:7b`/`llama3.1:8b`), OpenAI ou
+qualquer endpoint compatível, só com variáveis de ambiente. Trade-off conhecido: o gpt-oss é menos estável que
+modelos fechados em chamadas de ferramenta multi-turno, por isso há retry, fallback sem ferramentas e limite de
+rodadas; e ele ainda erra de vez em quando (ver "Limitações"). Em produção eu mediria alguns modelos num
+conjunto de avaliação antes de fixar um.
 
 **Interface: CLI** (`rich`) — o foco é o agente. A mesma classe `Agent.reply(texto)` serve para API/WhatsApp.
 
 **Persistência:** o histórico da conversa fica em memória durante a sessão e é gravado em
 `sessions/<id>.json` a cada turno, permitindo `--session ID` para retomar. Faz sentido porque atendimento
-é multi-turno (o cliente informa o pedido numa mensagem e o e-mail em outra). Os blocos são salvos em formato
-mínimo (sem campos extras do SDK) para serem reenviáveis. Em produção: Redis/Postgres por telefone do cliente.
+é multi-turno (o cliente informa o pedido numa mensagem e o e-mail em outra). As mensagens são salvas em formato
+mínimo (sem campos extras do provedor, como `reasoning`) para serem reenviáveis. Em produção: Redis/Postgres por telefone do cliente.
 
 **Tratamento dos dados** (ver `data_store.py`):
 - Busca tolerante a acento, caixa e plural pt-BR (`violões` → `violao`), sobre nome + categoria + descrição

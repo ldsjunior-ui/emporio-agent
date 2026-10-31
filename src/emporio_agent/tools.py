@@ -200,7 +200,11 @@ def calcular_pagamento(product_ids: list[int]) -> dict[str, Any]:
         "debito_ou_boleto": f"{brl(total)} à vista (boleto compensa em até 3 dias úteis)",
         "credito_max_parcelas": opts[-1]["parcelas"],
         "credito_opcoes": opts,
-        "combinar_formas_de_pagamento": "permitido" if total > 2000 else "não permitido (só acima de R$ 2.000,00)",
+        "combinar_formas_de_pagamento": (
+            "permitido (compra acima de R$ 2.000,00). A divisão dos valores e como o desconto do PIX "
+            "se aplica a um pagamento parcial são definidos pela equipe: NÃO simule valores nem prometa desconto parcial."
+            if total > 2000 else "não permitido (só acima de R$ 2.000,00)"
+        ),
         "frete_regiao_campo_grande": "grátis" if total > FREE_SHIPPING_FROM else "R$ 35,00 (taxa fixa)",
         "frete_outras_cidades": "calculado pelo CEP (Correios/Jadlog); não consigo cotar por aqui",
     }
@@ -432,7 +436,7 @@ TOOL_SPECS: list[dict[str, Any]] = [
     },
     {
         "name": "encaminhar_para_humano",
-        "description": "Abre um chamado para a equipe (reclamação, devolução/troca a processar, garantia, pedido atrasado, dúvida que o manual não cobre). Retorna protocolo. Só use depois de ter o resumo do caso e, se possível, nome e contato.",
+        "description": "Abre um chamado para a equipe (reclamação, devolução/troca a processar, garantia, pedido atrasado, dúvida que o manual não cobre). Retorna protocolo. Só use depois de ter o resumo do caso e, se possível, nome e contato. O `resumo` deve conter APENAS fatos informados pelo cliente ou retornados por ferramentas (não presuma estado do produto, embalagem, causa do defeito).",
         "input_schema": {"type": "object", "properties": {"motivo": {"type": "string", "enum": ["reclamacao", "devolucao_troca", "garantia", "pedido_atrasado", "cancelamento", "frete_outras_cidades", "outro"]}, "resumo": {"type": "string"}, "nome_cliente": {"type": "string"}, "contato_cliente": {"type": "string"}, "order_id": {"type": "integer"}}, "required": ["motivo", "resumo"]},
     },
 ]

@@ -98,5 +98,11 @@ def run(name: str, spec: dict) -> None:
 
 if __name__ == "__main__":
     wanted = sys.argv[1:] or list(SCENARIOS)
+    failed = []
     for n in wanted:
-        run(n, SCENARIOS[n])
+        try:
+            run(n, SCENARIOS[n])
+        except Exception as exc:  # um cenário que falha (ex.: cota do provedor) não apaga os outros
+            failed.append(n)
+            print(f"FAIL {n}: {type(exc).__name__}: {str(exc)[:200]}")
+    sys.exit(1 if failed else 0)

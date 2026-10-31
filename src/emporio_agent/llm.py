@@ -57,7 +57,10 @@ class ChatClient:
                 return resp.json()["choices"][0]["message"]
             last, status = f"HTTP {resp.status_code}: {resp.text[:300]}", resp.status_code
             if resp.status_code in (429, 500, 502, 503) and attempt < self.retries:
-                time.sleep(float(resp.headers.get("retry-after", 2 ** attempt * 2)))
+                wait = float(resp.headers.get("retry-after", 2 ** attempt * 2))
+                if wait > 30:  # cota esgotada (ex.: limite diário): esperar não adianta, falhe rápido
+                    break
+                time.sleep(wait)
                 continue
             break
         raise LLMError(last, status)
