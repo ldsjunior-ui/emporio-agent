@@ -117,3 +117,31 @@ def test_guarda_libera_quando_cliente_escreveu_os_dados():
     c = FakeClient(ok, say("Seu pedido foi enviado."))
     turn = Agent(client=c, persist=False).reply("pedido 8, e-mail anacarol.ferreira@coldmail.com")
     assert "enviado" in turn.tool_calls[0].result
+
+
+def test_handoff_bloqueia_fato_inventado_no_resumo():
+    inv = call("t1", "encaminhar_para_humano", motivo="garantia",
+               resumo="Produto na embalagem original, sem sinais de uso, defeito.")
+    c = FakeClient(inv, say("ok"))
+    turn = Agent(client=c, persist=False).reply("Quero abrir um chamado, o violão tem defeito")
+    assert "resumo_com_fatos_nao_informados" in turn.tool_calls[0].result
+
+
+def test_handoff_nao_abre_sozinho_apos_consulta():
+    look = call("t1", "verificar_devolucao", order_id=7, contato_do_cliente="leticia.rocha@jmail.com", motivo="arrependimento")
+    ticket = call("t2", "encaminhar_para_humano", motivo="devolucao_troca", resumo="Pedido 7 fora do prazo.")
+    c = FakeClient(look, ticket, say("Fora do prazo. Quer que eu abra um chamado?"))
+    turn = Agent(client=c, persist=False).reply("pedido 7, leticia.rocha@jmail.com")
+    assert "cliente_nao_pediu_chamado" in turn.tool_calls[1].result
+
+
+def test_handoff_libera_quando_cliente_pede():
+    ticket = call("t1", "encaminhar_para_humano", motivo="reclamacao", resumo="Pedido atrasado.")
+    c = FakeClient(ticket, say("Protocolo aberto."))
+    turn = Agent(client=c, persist=False).reply("Pode abrir um chamado por favor")
+    assert "protocolo" in turn.tool_calls[0].result
+
+
+def test_resposta_vazia_tenta_de_novo():
+    c = FakeClient(say(""), say("Oi!"))
+    assert Agent(client=c, persist=False).reply("oi").reply == "Oi!"

@@ -63,10 +63,12 @@ class Agent:
             config.SESSIONS_DIR.mkdir(exist_ok=True)
             self._path.write_text(json.dumps(self.messages, ensure_ascii=False, indent=1), encoding="utf-8")
 
-    def _guard(self, name: str, args: dict[str, Any]) -> str | None:
+    def _guard(self, name: str, args: dict[str, Any], turn_calls: list["ToolCall"] | None = None) -> str | None:
         """Trava determinística: ferramentas de pedido só rodam com dados que o CLIENTE de fato escreveu.
         Modelos pequenos inventam argumentos (ex.: order_id=12345, e-mail "fulano@..."); isso bloqueia a
         chamada, evita varrer pedidos por tentativa e impede que texto de ferramenta forje identidade."""
+        if name == "encaminhar_para_humano":
+            return self._guard_handoff(args, turn_calls or [])
         if name not in ("consultar_pedido", "verificar_devolucao"):
             return None
         said = " ".join(m["content"] for m in self.messages if m["role"] == "user" and isinstance(m["content"], str))
@@ -83,6 +85,30 @@ class Agent:
         return json.dumps({"erro": "dados_nao_informados_pelo_cliente",
                            "mensagem": "Peça ao cliente o número do pedido e o e-mail ou telefone cadastrado; "
                                        "use somente o que ele escreveu, nunca valores inventados."}, ensure_ascii=False)
+
+    CONDITION_CLAIMS = ("embalagem original", "sem sinais de uso", "acessórios e manuais", "caixa original")
+    INTENT = ("abr", "chamado", "registr", "reclam", "protocolo", "sim", "pode", "quero", "atendente",
+              "humano", "resolv", "encaminh", "equipe")
+
+    def _guard_handoff(self, args: dict[str, Any], turn_calls: list["ToolCall"]) -> str | None:
+        """Chamado só com fatos que o cliente disse e só quando ele pediu (modelos pequenos 'completam'
+        o resumo com estado do produto que ninguém informou e abrem chamado por conta própria)."""
+        said = " ".join(m["content"] for m in self.messages if m["role"] == "user" and isinstance(m["content"], str)).lower()
+        resumo = str(args.get("resumo", "")).lower()
+        invented = [c for c in self.CONDITION_CLAIMS if c in resumo and c not in said]
+        if invented:
+            return json.dumps({"erro": "resumo_com_fatos_nao_informados",
+                               "mensagem": f"Remova do resumo afirmações que o cliente não fez ({', '.join(invented)}) "
+                                           "e tente de novo só com fatos informados pelo cliente ou pelas ferramentas."},
+                              ensure_ascii=False)
+        last_user = next((m["content"] for m in reversed(self.messages)
+                          if m["role"] == "user" and isinstance(m["content"], str)), "").lower()
+        looked_up = any(c.name in ("consultar_pedido", "verificar_devolucao") for c in turn_calls)
+        if looked_up and not any(w in last_user for w in self.INTENT):
+            return json.dumps({"erro": "cliente_nao_pediu_chamado",
+                               "mensagem": "O cliente ainda não pediu para abrir chamado. Explique o resultado e "
+                                           "OFEREÇA abrir; abra só se ele aceitar ou pedir."}, ensure_ascii=False)
+        return None
 
     def _chat(self, allow_tools: bool) -> dict[str, Any]:
         """Chama o modelo com resiliência em 3 camadas (padrão aprendido com gpt-oss na Groq):
@@ -104,6 +130,7 @@ class Agent:
         self.messages.append({"role": "user", "content": user_text})
         calls: list[ToolCall] = []
         checkpoint = len(self.messages)
+        empty_retries = 0
         try:
             for round_ in range(config.MAX_TOOL_ROUNDS):
                 # Última rodada: sem ferramentas, o modelo é obrigado a responder em texto.
@@ -113,6 +140,10 @@ class Agent:
                 self.messages.append(_clean(msg))
                 if not tool_calls:
                     text = (msg.get("content") or "").strip()
+                    if not text and empty_retries < 2:  # modelo devolveu vazio: pede de novo
+                        empty_retries += 1
+                        self.messages.pop()
+                        continue
                     self._save()
                     return Turn(text or FALLBACK, calls)
                 for tc in tool_calls:
@@ -121,7 +152,7 @@ class Agent:
                         args = json.loads(fn.get("arguments") or "{}")
                     except json.JSONDecodeError:
                         args = {}
-                    out = self._guard(fn["name"], args) or run_tool(fn["name"], args)
+                    out = self._guard(fn["name"], args, calls) or run_tool(fn["name"], args)
                     call = ToolCall(fn["name"], args, out)
                     calls.append(call)
                     if on_tool:
