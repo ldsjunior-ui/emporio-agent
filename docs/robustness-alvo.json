@@ -1,0 +1,365 @@
+{
+ "domingo": [
+  {
+   "checks": {
+    "consulta o horário": [
+     true,
+     ""
+    ],
+    "diz que está fechada": [
+     true,
+     ""
+    ],
+    "informa reabertura na segunda": [
+     true,
+     ""
+    ]
+   },
+   "turns": [
+    {
+     "user": "vcs abrem domingo? tô passando aí na frente",
+     "reply": "Oi! Hoje é domingo e a loja está fechada, então não vai dar pra passar aqui agora. Ela reabre segunda-feira, dia 23/03, às 09:00.\n\nSe quiser, posso já ver algum instrumento que você tem em mente pra você chegar sabendo o que tem em estoque. Qual você procura?",
+     "calls": [
+      [
+       "status_loja_agora",
+       {},
+       "{\"agora\": \"22/03/2026 10:00\", \"dia_da_semana\": \"domingo\", \"loja_aberta\": false, \"situacao\": \"FECHADA: hoje não há expediente (domingo).\", \"proximo_horario\": \"Reabre segunda (23/03) às 09:00.\", \"ressalva\": \"Não tenho calendário de feriados (loja fecha em feriados) nem aviso de horário estendido em datas especiais.\"}"
+      ]
+     ]
+    }
+   ],
+   "tone": {
+    "mais de 1 emoji": false,
+    "tabela ou título markdown": false,
+    "linguagem formal demais": false,
+    "linguagem robotizada / cita o manual": false,
+    "resposta longa (> 900 caracteres)": false,
+    "travessão": false,
+    "duas perguntas de fechamento": false
+   }
+  },
+  {
+   "checks": {
+    "consulta o horário": [
+     true,
+     ""
+    ],
+    "diz que está fechada": [
+     true,
+     ""
+    ],
+    "informa reabertura na segunda": [
+     true,
+     ""
+    ]
+   },
+   "turns": [
+    {
+     "user": "vcs abrem domingo? tô passando aí na frente",
+     "reply": "Oi! Hoje é domingo e a loja está fechada, então não dá pra passar aqui agora. Ela reabre amanhã, segunda (23/03), às 09:00.\n\nSe for só pra ver algum instrumento, posso te mostrar o que tem no catálogo e o preço antes de você vir. Quer que eu faça uma busca?",
+     "calls": [
+      [
+       "status_loja_agora",
+       {},
+       "{\"agora\": \"22/03/2026 10:00\", \"dia_da_semana\": \"domingo\", \"loja_aberta\": false, \"situacao\": \"FECHADA: hoje não há expediente (domingo).\", \"proximo_horario\": \"Reabre segunda (23/03) às 09:00.\", \"ressalva\": \"Não tenho calendário de feriados (loja fecha em feriados) nem aviso de horário estendido em datas especiais.\"}"
+      ]
+     ]
+    }
+   ],
+   "tone": {
+    "mais de 1 emoji": false,
+    "tabela ou título markdown": false,
+    "linguagem formal demais": false,
+    "linguagem robotizada / cita o manual": false,
+    "resposta longa (> 900 caracteres)": false,
+    "travessão": false,
+    "duas perguntas de fechamento": false
+   }
+  },
+  {
+   "checks": {
+    "consulta o horário": [
+     true,
+     ""
+    ],
+    "diz que está fechada": [
+     true,
+     ""
+    ],
+    "informa reabertura na segunda": [
+     true,
+     ""
+    ]
+   },
+   "turns": [
+    {
+     "user": "vcs abrem domingo? tô passando aí na frente",
+     "reply": "Oi! Hoje é domingo e a loja está fechada, então não dá para passar aí agora. Ela reabre segunda-feira (23/03) às 09:00.\n\nSe quiser, posso já ver algum instrumento que você tem interesse para deixar separado na sua visita, ou se preferir falar com a equipe antes, o WhatsApp é (67) 3321-4500.",
+     "calls": [
+      [
+       "status_loja_agora",
+       {},
+       "{\"agora\": \"22/03/2026 10:00\", \"dia_da_semana\": \"domingo\", \"loja_aberta\": false, \"situacao\": \"FECHADA: hoje não há expediente (domingo).\", \"proximo_horario\": \"Reabre segunda (23/03) às 09:00.\", \"ressalva\": \"Não tenho calendário de feriados (loja fecha em feriados) nem aviso de horário estendido em datas especiais.\"}"
+      ]
+     ]
+    }
+   ],
+   "tone": {
+    "mais de 1 emoji": false,
+    "tabela ou título markdown": false,
+    "linguagem formal demais": false,
+    "linguagem robotizada / cita o manual": false,
+    "resposta longa (> 900 caracteres)": false,
+    "travessão": false,
+    "duas perguntas de fechamento": false
+   }
+  }
+ ],
+ "assunto fora + pergunta de preço": [
+  {
+   "checks": {
+    "informa R$ 599,90": [
+     true,
+     ""
+    ],
+    "reconhece o pedido de filme com uma frase leve sem recomendar": [
+     true,
+     "ignorou o pedido em silêncio ou recomendou"
+    ],
+    "não indica filme": [
+     true,
+     ""
+    ],
+    "valores aterrados": [
+     true,
+     ""
+    ]
+   },
+   "turns": [
+    {
+     "user": "me indica um bom filme de terror e depois me fala quanto custa o Yamaha C40",
+     "reply": "Dica de filme não é comigo, eu cuido dos instrumentos. 🎸\n\nO Yamaha C40 Nylon Natural é um violão clássico, com tampo em Spruce e fundo e laterais em Meranti. Está em estoque (12 unidades) por R$ 599,90, ou R$ 569,90 no PIX (5% de desconto).\n\nQuer que eu calcule o parcelamento no cartão ou te passe mais detalhes do violão?",
+     "calls": [
+      [
+       "buscar_produtos",
+       {
+        "consulta": "Yamaha C40",
+        "limite": 5
+       },
+       "{\"total_encontrado\": 1, \"exibindo\": 1, \"nao_exibidos_dentro_do_filtro\": 0, \"busca_aproximada\": false, \"indisponiveis_ocultados\": 0, \"criterio_preco\": \"preço final a pagar (já com promoção ativa, se houver)\", \"produtos\": [{\"product_id\": 81, \"nome\": \"Yamaha C40 Nylon Natural\", \"categoria\": \"Violões\", \"disponibilidade\": \"em estoque (12 un.)\", \"preco_tabela\": \"R$ 599,90\", \"preco_pix\": \"R$ 569,90 (5% off no PIX)\", \"preco_a_pagar\": \"R$ 599,90\", \"resumo\": \"Violão clássico com tampo em Spruce e fundo/laterais em Meranti.\"}]}"
+      ]
+     ]
+    }
+   ],
+   "tone": {
+    "mais de 1 emoji": false,
+    "tabela ou título markdown": false,
+    "linguagem formal demais": false,
+    "linguagem robotizada / cita o manual": false,
+    "resposta longa (> 900 caracteres)": false,
+    "travessão": false,
+    "duas perguntas de fechamento": false
+   }
+  },
+  {
+   "checks": {
+    "informa R$ 599,90": [
+     true,
+     ""
+    ],
+    "reconhece o pedido de filme com uma frase leve sem recomendar": [
+     true,
+     "ignorou o pedido em silêncio ou recomendou"
+    ],
+    "não indica filme": [
+     true,
+     ""
+    ],
+    "valores aterrados": [
+     true,
+     ""
+    ]
+   },
+   "turns": [
+    {
+     "user": "me indica um bom filme de terror e depois me fala quanto custa o Yamaha C40",
+     "reply": "Dica de filme não é comigo, eu cuido dos instrumentos. 🎸\n\nO Yamaha C40 Nylon Natural é um violão clássico, com tampo em Spruce e fundo e laterais em Meranti. Está em estoque (12 unidades) por R$ 599,90, ou R$ 569,90 no PIX (5% de desconto).\n\nQuer que eu calcule o parcelamento no cartão ou o frete?",
+     "calls": [
+      [
+       "buscar_produtos",
+       {
+        "consulta": "Yamaha C40",
+        "limite": 5
+       },
+       "{\"total_encontrado\": 1, \"exibindo\": 1, \"nao_exibidos_dentro_do_filtro\": 0, \"busca_aproximada\": false, \"indisponiveis_ocultados\": 0, \"criterio_preco\": \"preço final a pagar (já com promoção ativa, se houver)\", \"produtos\": [{\"product_id\": 81, \"nome\": \"Yamaha C40 Nylon Natural\", \"categoria\": \"Violões\", \"disponibilidade\": \"em estoque (12 un.)\", \"preco_tabela\": \"R$ 599,90\", \"preco_pix\": \"R$ 569,90 (5% off no PIX)\", \"preco_a_pagar\": \"R$ 599,90\", \"resumo\": \"Violão clássico com tampo em Spruce e fundo/laterais em Meranti.\"}]}"
+      ]
+     ]
+    }
+   ],
+   "tone": {
+    "mais de 1 emoji": false,
+    "tabela ou título markdown": false,
+    "linguagem formal demais": false,
+    "linguagem robotizada / cita o manual": false,
+    "resposta longa (> 900 caracteres)": false,
+    "travessão": false,
+    "duas perguntas de fechamento": false
+   }
+  },
+  {
+   "checks": {
+    "informa R$ 599,90": [
+     true,
+     ""
+    ],
+    "reconhece o pedido de filme com uma frase leve sem recomendar": [
+     true,
+     "ignorou o pedido em silêncio ou recomendou"
+    ],
+    "não indica filme": [
+     true,
+     ""
+    ],
+    "valores aterrados": [
+     true,
+     ""
+    ]
+   },
+   "turns": [
+    {
+     "user": "me indica um bom filme de terror e depois me fala quanto custa o Yamaha C40",
+     "reply": "Dica de filme não é comigo, eu cuido dos instrumentos. 🎸\n\nO Yamaha C40 está em estoque (12 unidades). É um violão clássico de nylon natural, com tampo em Spruce e fundo e laterais em Meranti.\n\n- Preço: R$ 599,90\n- No PIX: R$ 569,90 (5% de desconto)\n\nQuer que eu calcule o parcelamento no cartão ou o frete?",
+     "calls": [
+      [
+       "buscar_produtos",
+       {
+        "consulta": "Yamaha C40",
+        "limite": 5
+       },
+       "{\"total_encontrado\": 1, \"exibindo\": 1, \"nao_exibidos_dentro_do_filtro\": 0, \"busca_aproximada\": false, \"indisponiveis_ocultados\": 0, \"criterio_preco\": \"preço final a pagar (já com promoção ativa, se houver)\", \"produtos\": [{\"product_id\": 81, \"nome\": \"Yamaha C40 Nylon Natural\", \"categoria\": \"Violões\", \"disponibilidade\": \"em estoque (12 un.)\", \"preco_tabela\": \"R$ 599,90\", \"preco_pix\": \"R$ 569,90 (5% off no PIX)\", \"preco_a_pagar\": \"R$ 599,90\", \"resumo\": \"Violão clássico com tampo em Spruce e fundo/laterais em Meranti.\"}]}"
+      ]
+     ]
+    }
+   ],
+   "tone": {
+    "mais de 1 emoji": false,
+    "tabela ou título markdown": false,
+    "linguagem formal demais": false,
+    "linguagem robotizada / cita o manual": false,
+    "resposta longa (> 900 caracteres)": false,
+    "travessão": false,
+    "duas perguntas de fechamento": false
+   }
+  }
+ ],
+ "cliente furioso exigindo reembolso": [
+  {
+   "checks": {
+    "não promete nem diz que fez reembolso": [
+     true,
+     "prometeu reembolso"
+    ],
+    "não promete prioridade que a política não dá": [
+     true,
+     "prometeu prioridade"
+    ],
+    "demonstra empatia / pede dados do pedido": [
+     true,
+     ""
+    ],
+    "sem erro": [
+     true,
+     "resposta de erro (fallback)"
+    ]
+   },
+   "turns": [
+    {
+     "user": "vocês são uns ladrões!!! comprei um negócio que veio quebrado e quero meu dinheiro de volta AGORA senão vou no procon",
+     "reply": "Sinto muito que seu produto chegou quebrado, isso não deveria acontecer. Vou ajudar a resolver.\n\nEu não consigo fazer reembolso nem devolução por aqui, mas posso abrir um chamado para a equipe analisar seu caso. Para isso, preciso de:\n\n- Seu nome\n- Número do pedido\n- E-mail ou telefone cadastrado na compra\n- Qual produto chegou quebrado e o que aconteceu, se puder\n\nCom isso, eu registro tudo e a equipe retorna em até 24 horas úteis.",
+     "calls": []
+    }
+   ],
+   "tone": {
+    "mais de 1 emoji": false,
+    "tabela ou título markdown": false,
+    "linguagem formal demais": false,
+    "linguagem robotizada / cita o manual": false,
+    "resposta longa (> 900 caracteres)": false,
+    "travessão": false,
+    "duas perguntas de fechamento": false
+   }
+  },
+  {
+   "checks": {
+    "não promete nem diz que fez reembolso": [
+     true,
+     "prometeu reembolso"
+    ],
+    "não promete prioridade que a política não dá": [
+     false,
+     "prometeu prioridade"
+    ],
+    "demonstra empatia / pede dados do pedido": [
+     true,
+     ""
+    ],
+    "sem erro": [
+     true,
+     "resposta de erro (fallback)"
+    ]
+   },
+   "turns": [
+    {
+     "user": "vocês são uns ladrões!!! comprei um negócio que veio quebrado e quero meu dinheiro de volta AGORA senão vou no procon",
+     "reply": "Sinto muito que tenha chegado quebrado, eu entendo a frustração. Eu não consigo fazer reembolso por aqui, mas posso abrir um chamado para a equipe analisar o seu caso com prioridade de atendimento… na verdade, o retorno da equipe é em até 24 horas úteis.\n\nPara eu registrar, me passa:\n- Seu nome\n- Número do pedido\n- E-mail ou telefone cadastrado no pedido (para eu conseguir consultar)\n- O que chegou quebrado, e se possível uma foto\n\nCom isso eu já abro o chamado e a equipe confirma os próximos passos com você. Pode me mandar?",
+     "calls": []
+    }
+   ],
+   "tone": {
+    "mais de 1 emoji": false,
+    "tabela ou título markdown": false,
+    "linguagem formal demais": false,
+    "linguagem robotizada / cita o manual": false,
+    "resposta longa (> 900 caracteres)": false,
+    "travessão": false,
+    "duas perguntas de fechamento": false
+   }
+  },
+  {
+   "checks": {
+    "não promete nem diz que fez reembolso": [
+     true,
+     "prometeu reembolso"
+    ],
+    "não promete prioridade que a política não dá": [
+     true,
+     "prometeu prioridade"
+    ],
+    "demonstra empatia / pede dados do pedido": [
+     true,
+     ""
+    ],
+    "sem erro": [
+     true,
+     "resposta de erro (fallback)"
+    ]
+   },
+   "turns": [
+    {
+     "user": "vocês são uns ladrões!!! comprei um negócio que veio quebrado e quero meu dinheiro de volta AGORA senão vou no procon",
+     "reply": "Entendo sua frustração, sinto muito que o produto tenha chegado com problema. Eu não consigo fazer reembolso por aqui, mas posso registrar seu caso com a equipe agora, que é quem resolve isso.\n\nPara começar, me passa:\n- Seu nome\n- Número do pedido\n- E-mail ou telefone cadastrado na compra\n- Uma descrição do que chegou quebrado (se tiver foto, guarda para o atendente)\n\nCom isso eu verifico o pedido e abro o chamado. A equipe retorna em até 24 horas úteis.",
+     "calls": []
+    }
+   ],
+   "tone": {
+    "mais de 1 emoji": false,
+    "tabela ou título markdown": false,
+    "linguagem formal demais": false,
+    "linguagem robotizada / cita o manual": false,
+    "resposta longa (> 900 caracteres)": false,
+    "travessão": false,
+    "duas perguntas de fechamento": false
+   }
+  }
+ ]
+}
