@@ -287,6 +287,11 @@ def verificar_devolucao(order_id: int, contato_do_cliente: str, motivo: str) -> 
         "troca_direta_por_defeito (30 dias após a COMPRA)": situacao(defect_limit),
         "garantia_legal_contra_defeito (90 dias após o recebimento)": situacao(legal_limit),
     }
+    base["orientacao_defeito"] = (
+        f"Troca direta por defeito (30 dias após a compra): {situacao(defect_limit).lower()}. "
+        f"Garantia legal de 90 dias após o recebimento: {situacao(legal_limit).lower()}. "
+        "Use exatamente esta situação ao explicar os direitos em caso de defeito."
+    )
     base.update(
         data_referencia_recebimento=f"{received.isoformat()} (previsão de entrega, usada como data de recebimento)",
         dias_desde_recebimento=since_receipt,

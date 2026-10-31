@@ -138,3 +138,11 @@ def test_run_tool_tipo_errado_nao_explode():
     assert "erro" in out
     out = json.loads(t.run_tool("consultar_pedido", {"order_id": "abc", "contato_do_cliente": "x"}))
     assert "erro" in out
+
+
+def test_orientacao_defeito_explicita_encerrado_e_vigente():
+    from emporio_agent.data_store import get_store
+
+    r = t.verificar_devolucao(7, get_store().customers[14].email, "arrependimento")
+    o = r["orientacao_defeito"]
+    assert "encerrado" in o and "vigente" in o
