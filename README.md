@@ -34,9 +34,9 @@ Com Ollama (sem chave): `ollama pull qwen2.5:7b` e `LLM_PROVIDER=ollama python -
 
 ## Exemplos de interação
 
-Em [`examples/`](examples) há 5 conversas reais com o agente (`openai/gpt-oss-120b` na Groq), geradas por
+Em [`examples/`](examples) há 5 conversas reais com o agente (modelo indicado no cabeçalho de cada arquivo: `gpt-oss-120b` nos exemplos 01 e 04, `gpt-oss-20b` nos exemplos 02, 03 e 05, ambos na Groq), geradas por
 `python scripts/run_scenarios.py`, com o rastro das ferramentas chamadas (linhas `🔧`). O texto das respostas é
-saída do modelo, sem edição manual; como o modelo varia entre execuções, uma nova rodada pode sair um pouco diferente:
+saída do modelo, sem edição manual; como o modelo varia entre execuções, uma nova rodada pode sair um pouco diferente. Por que dois modelos: a cota diária gratuita do `gpt-oss-120b` acabou durante a geração, e cada modelo tem cota própria. Os exemplos foram lidos e, quando mostraram falha, a correção foi feita **no código** (travas e saídas de ferramenta), não editando o texto:
 
 | Arquivo | O que demonstra |
 |---|---|
@@ -68,7 +68,7 @@ saída do modelo, sem edição manual; como o modelo varia entre execuções, um
   `encaminhar_para_humano`.
 - `src/emporio_agent/data_store.py` / `policies.py` — carga dos CSVs e do manual (`data/politicas_da_loja.md`,
   transcrição fiel do PDF).
-- `tests/` — 26 testes de regras de negócio e do loop (cliente de LLM falso, sem rede).
+- `tests/` — 34 testes de regras de negócio, do loop e das travas (cliente de LLM falso, sem rede).
 
 ## Decisões técnicas (e por quê)
 
@@ -139,8 +139,24 @@ acessórios) vem do §1/§7.1.
 | 10 | O manual é "documento interno" | O agente usa o conteúdo mas não cita "o manual" nem números de seção; feriados não estão no material, então o agente avisa que não tem o calendário |
 | 11 | Não há lista de "lojas parceiras" (§7.1 pede para sugerir "quando possível") | Não inventa nomes: redireciona sem citar loja |
 
+## Teste com modelos locais (Ollama) — resultado negativo documentado
+
+Tentei gerar os exemplos com modelos locais (`qwen2.5:7b` e `llama3.1:8b`, via Ollama). Os transcritos estão em
+[`docs/ollama-runs/`](docs/ollama-runs). Resultado: **não servem para este agente com 8 ferramentas**. Exemplos
+reais: o qwen citou R$ 1.599 para um produto de R$ 599,90 e disse que a loja estava aberta num sábado depois do
+fechamento; o llama não achou o produto que estava no catálogo, inventou `order_id=12345` e e-mail falso, e abriu
+chamado com contato "N/A" para uma pergunta sobre bitcoin. Por isso o padrão do projeto é Groq. O Ollama continua
+suportado (`LLM_PROVIDER=ollama`) e as travas abaixo existem justamente por causa desses erros.
+
+**Travas determinísticas no código (`agent.py`)**: (1) `consultar_pedido`/`verificar_devolucao` só executam com
+número de pedido e contato que o próprio cliente escreveu; (2) `encaminhar_para_humano` é bloqueado se o resumo
+afirmar estado do produto que ninguém informou (ex.: "embalagem original") e se o agente tentar abrir chamado logo
+após consultar um pedido sem o cliente ter pedido; (3) resposta vazia do modelo é repetida; (4) a última rodada de
+ferramentas vai sem ferramentas para forçar texto.
+
 ## Limitações conhecidas / o que faria com mais tempo
 
+- **Modelo ainda erra**: mesmo o `gpt-oss-20b` às vezes generaliza ou exagera um detalhe (ex.: chamado descrevendo "defeito detectado" quando o cliente só perguntou se teria direito). As travas reduzem, não eliminam; em produção eu usaria um modelo maior, uma etapa de verificação da resposta contra os dados das ferramentas e avaliação contínua.
 - **Avaliação automática**: montar um conjunto de ~50 perguntas com respostas esperadas (inclusive
   adversariais: injeção de prompt, pedidos de dados alheios, preços "de cabeça") e medir ferramenta correta,
   fidelidade ao dado e tom, com LLM-as-judge + checagens determinísticas. Hoje a cobertura é por testes
