@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Callable
@@ -62,6 +63,27 @@ class Agent:
             config.SESSIONS_DIR.mkdir(exist_ok=True)
             self._path.write_text(json.dumps(self.messages, ensure_ascii=False, indent=1), encoding="utf-8")
 
+    def _guard(self, name: str, args: dict[str, Any]) -> str | None:
+        """Trava determinística: ferramentas de pedido só rodam com dados que o CLIENTE de fato escreveu.
+        Modelos pequenos inventam argumentos (ex.: order_id=12345, e-mail "fulano@..."); isso bloqueia a
+        chamada, evita varrer pedidos por tentativa e impede que texto de ferramenta forje identidade."""
+        if name not in ("consultar_pedido", "verificar_devolucao"):
+            return None
+        said = " ".join(m["content"] for m in self.messages if m["role"] == "user" and isinstance(m["content"], str))
+        said_digits = re.sub(r"\D", "", said)
+        contact = str(args.get("contato_do_cliente", "")).strip()
+        order = str(args.get("order_id", "")).strip()
+        ok_order = bool(order) and re.search(rf"(?<!\d){re.escape(order)}(?!\d)", said) is not None
+        digits = re.sub(r"\D", "", contact)
+        ok_contact = bool(contact) and (
+            contact.lower() in said.lower() or (len(digits) >= 8 and digits in said_digits)
+        )
+        if ok_order and ok_contact:
+            return None
+        return json.dumps({"erro": "dados_nao_informados_pelo_cliente",
+                           "mensagem": "Peça ao cliente o número do pedido e o e-mail ou telefone cadastrado; "
+                                       "use somente o que ele escreveu, nunca valores inventados."}, ensure_ascii=False)
+
     def _chat(self, allow_tools: bool) -> dict[str, Any]:
         """Chama o modelo com resiliência em 3 camadas (padrão aprendido com gpt-oss na Groq):
         1) retry; 2) se ainda falhar por erro transitório, responde SEM ferramentas;
@@ -99,7 +121,7 @@ class Agent:
                         args = json.loads(fn.get("arguments") or "{}")
                     except json.JSONDecodeError:
                         args = {}
-                    out = run_tool(fn["name"], args)
+                    out = self._guard(fn["name"], args) or run_tool(fn["name"], args)
                     call = ToolCall(fn["name"], args, out)
                     calls.append(call)
                     if on_tool:

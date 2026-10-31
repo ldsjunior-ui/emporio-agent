@@ -6,6 +6,7 @@ não dependa de nenhum SDK e os testes usem um cliente falso.
 """
 from __future__ import annotations
 
+import os
 import time
 from typing import Any
 
@@ -29,13 +30,13 @@ class LLMError(RuntimeError):
 
 
 class ChatClient:
-    def __init__(self, timeout: float = 60.0, retries: int = 3):
+    def __init__(self, timeout: float | None = None, retries: int = 3):
         self.cfg = config.provider()
         if self.cfg["needs_key"] and not self.cfg["api_key"]:
             raise LLMError(
                 f"Chave ausente para o provedor '{self.cfg['name']}'. Defina no .env (veja .env.example)."
             )
-        self.http = httpx.Client(timeout=timeout)
+        self.http = httpx.Client(timeout=timeout or float(os.getenv("LLM_TIMEOUT", "180")))
         self.retries = retries
 
     def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict[str, Any]:

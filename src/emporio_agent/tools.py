@@ -459,5 +459,5 @@ def run_tool(name: str, args: dict[str, Any]) -> str:
         return json.dumps({"erro": f"ferramenta desconhecida: {name}"}, ensure_ascii=False)
     try:
         return json.dumps(fn(**args), ensure_ascii=False)
-    except TypeError as exc:  # argumentos inválidos vindos do modelo
+    except (TypeError, ValueError, KeyError) as exc:  # argumentos inválidos vindos do modelo
         return json.dumps({"erro": f"argumentos inválidos: {exc}"}, ensure_ascii=False)

@@ -131,3 +131,10 @@ def test_prazos_devolucao_deixam_claro_o_que_encerrou_e_o_que_vale():
 def test_listagem_informa_quantos_nao_foram_exibidos():
     r = t.buscar_produtos("violões", categoria_id=5, preco_max=1000, limite=8)
     assert r["nao_exibidos_dentro_do_filtro"] == r["total_encontrado"] - 8
+
+
+def test_run_tool_tipo_errado_nao_explode():
+    out = json.loads(t.run_tool("obter_produto", {"product_id": "nenhum"}))
+    assert "erro" in out
+    out = json.loads(t.run_tool("consultar_pedido", {"order_id": "abc", "contato_do_cliente": "x"}))
+    assert "erro" in out

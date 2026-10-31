@@ -103,3 +103,17 @@ def test_provedor_sem_chave_falha_com_mensagem_clara(monkeypatch):
 def test_ollama_nao_exige_chave(monkeypatch):
     monkeypatch.setenv("LLM_PROVIDER", "ollama")
     assert ChatClient().cfg["model"] == "qwen2.5:7b"
+
+
+def test_guarda_bloqueia_argumentos_de_pedido_inventados_pelo_modelo():
+    inventado = call("t1", "consultar_pedido", order_id=12345, contato_do_cliente="fulano@fulano.com")
+    c = FakeClient(inventado, say("Pode me passar o número do pedido e seu e-mail?"))
+    turn = Agent(client=c, persist=False).reply("Quero saber do meu pedido")
+    assert "dados_nao_informados_pelo_cliente" in turn.tool_calls[0].result
+
+
+def test_guarda_libera_quando_cliente_escreveu_os_dados():
+    ok = call("t1", "consultar_pedido", order_id=8, contato_do_cliente="anacarol.ferreira@coldmail.com")
+    c = FakeClient(ok, say("Seu pedido foi enviado."))
+    turn = Agent(client=c, persist=False).reply("pedido 8, e-mail anacarol.ferreira@coldmail.com")
+    assert "enviado" in turn.tool_calls[0].result
